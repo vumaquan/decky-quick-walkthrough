@@ -1259,22 +1259,6 @@ export const QuickAccessPanel: FC = () => {
             />
           </PanelSectionRow>
           <PanelSectionRow>
-            <TextField
-              label={s.googleApiKeyLabel}
-              value={settings.google_api_key || ""}
-              onChange={(e) => handleUpdateSetting("google_api_key", e.target.value)}
-              placeholder={s.googleApiKeyPlaceholder}
-            />
-          </PanelSectionRow>
-          <PanelSectionRow>
-            <TextField
-              label={s.googleCxLabel}
-              value={settings.google_cx || ""}
-              onChange={(e) => handleUpdateSetting("google_cx", e.target.value)}
-              placeholder="cx id (Programmable Search)"
-            />
-          </PanelSectionRow>
-          <PanelSectionRow>
             <ButtonItem
               layout="below"
               onClick={async () => {

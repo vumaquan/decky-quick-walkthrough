@@ -5,7 +5,7 @@ A **Decky Loader** plugin by **maQuan** for Steam Deck / SteamOS Gaming Mode tha
 ## Key Features
 
 - **Running Game Detection (`Router.MainRunningApp`)**: Automatically detects the currently running game and Steam Rich Presence hints to find matching guides faster.
-- **Multi-Source 1-Step Search**: Searches **IGN Wikis**, **PowerPyx**, **PC Gamer**, **Game8**, **Steam Community Guides**, and **StrategyWiki** (plus optional Google Custom Search API).
+- **Multi-Source 1-Step Search**: Searches **IGN Wikis**, **PowerPyx**, **PC Gamer**, **Game8**, **Steam Community Guides**, and **StrategyWiki**.
 - **Live Embedded Chromium `BrowserView` in QAM & Fullscreen**:
   - Renders live websites directly inside the QAM mini panel (with automatic coordinate alignment) and Fullscreen (`Read` button).
   - Keeps pages loaded in memory across QAM open/close toggles (`alwaysRender: true`) so you never lose your spot.

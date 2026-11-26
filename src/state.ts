@@ -14,8 +14,6 @@ const DEFAULT_SETTINGS: PluginSettings = {
   walkthrough_only: true,
   hide_spoilers: true,
   auto_cache_saved: true,
-  google_api_key: "",
-  google_cx: "",
 };
 
 function loadLastTarget(): ActiveReaderTarget | null {

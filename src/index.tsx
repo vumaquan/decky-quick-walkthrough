@@ -60,15 +60,28 @@ const HeaderTabBar: FC = () => {
       }}
     >
       <style>{`
-        button[data-qw-x="1"] svg {
+        button[data-qw-x="1"] {
+          position: relative !important;
+          height: 28px !important;
+          min-height: 28px !important;
+          padding: 0 !important;
+        }
+        button[data-qw-x="1"] svg,
+        button[data-qw-x="1"] > * {
           display: none !important;
         }
         button[data-qw-x="1"]::after {
           content: "✕";
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           font-size: 13px;
           font-weight: 700;
           line-height: 1;
           color: inherit;
+          pointer-events: none;
         }
         [data-qw-header="1"] {
           padding-bottom: 2px !important;

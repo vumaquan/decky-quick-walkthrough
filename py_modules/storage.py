@@ -13,8 +13,6 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "walkthrough_only": True,
     "hide_spoilers": True,
     "auto_cache_saved": True,
-    "google_api_key": "",
-    "google_cx": "",
 }
 
 

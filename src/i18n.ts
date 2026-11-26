@@ -109,9 +109,6 @@ export interface UiStrings {
   hideSpoilersDesc: string;
   autoCacheLabel: string;
   autoCacheDesc: string;
-  googleApiKeyLabel: string;
-  googleApiKeyPlaceholder: string;
-  googleCxLabel: string;
   diagRunning: string;
   diagButton: string;
   diagTimeout: string;
@@ -218,9 +215,6 @@ const EN_STRINGS: UiStrings = {
   hideSpoilersDesc: "Require clicking Spoiler blocks to reveal content",
   autoCacheLabel: "Save Offline Cache",
   autoCacheDesc: "Auto-save opened guide content for reading without Wi-Fi",
-  googleApiKeyLabel: "Google Custom Search API Key (optional)",
-  googleApiKeyPlaceholder: "Leave blank if unused",
-  googleCxLabel: "Google Search Engine ID / CX (optional)",
   diagRunning: "Testing connection...",
   diagButton: "Test Network Connection (SteamOS)",
   diagTimeout: "Network check timed out.",
@@ -326,9 +320,6 @@ const VI_STRINGS: UiStrings = {
   hideSpoilersDesc: "Yêu cầu bấm vào khối Spoiler để hiện nội dung",
   autoCacheLabel: "Lưu cache đọc Offline",
   autoCacheDesc: "Tự lưu nội dung guide đã mở để xem tiếp khi không có Wi-Fi",
-  googleApiKeyLabel: "Google Custom Search API Key (tùy chọn - Project cũ)",
-  googleApiKeyPlaceholder: "Để trống nếu không dùng",
-  googleCxLabel: "Google Search Engine ID / CX (tùy chọn)",
   diagRunning: "Đang kiểm tra kết nối...",
   diagButton: "Kiểm tra kết nối mạng (SteamOS)",
   diagTimeout: "Kiểm tra mạng quá thời gian chờ.",

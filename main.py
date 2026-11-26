@@ -79,7 +79,6 @@ class Plugin:
         english_only: bool = True,
     ) -> Dict[str, Any]:
         try:
-            settings = self._ensure_storage().get_settings()
             return await self._run_sync(
                 search_walkthroughs,
                 query=query,
@@ -88,8 +87,6 @@ class Plugin:
                 location_hint=location_hint,
                 walkthrough_only=walkthrough_only,
                 english_only=english_only,
-                google_api_key=settings.get("google_api_key", ""),
-                google_cx=settings.get("google_cx", ""),
             )
         except Exception as exc:
             decky.logger.exception(f"search_walkthroughs failed: {exc}")

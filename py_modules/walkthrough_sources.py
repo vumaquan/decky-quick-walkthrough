@@ -1668,63 +1668,6 @@ def _guide_id_for_url(url: str) -> Tuple[str, str]:
     return "web", url
 
 
-def _search_google_custom(
-    query: str,
-    api_key: str,
-    cx: str,
-    game_name: str = "",
-) -> List[Dict[str, Any]]:
-    if not api_key.strip() or not cx.strip():
-        return []
-    q_full = f"{query.strip()} walkthrough guide" if "walkthrough" not in query.lower() else query.strip()
-    url = (
-        "https://www.googleapis.com/customsearch/v1?"
-        + urllib.parse.urlencode(
-            {
-                "key": api_key.strip(),
-                "cx": cx.strip(),
-                "q": q_full,
-                "num": 10,
-            }
-        )
-    )
-    try:
-        data = _http_get_json(url, timeout=8)
-    except urllib.error.HTTPError as exc:
-        if exc.code == 403:
-            raise RuntimeError(
-                "Google API 403: Hãy bật Custom Search API (customsearch.googleapis.com) trong Google Cloud Project."
-            ) from exc
-        raise
-    out: List[Dict[str, Any]] = []
-    for item in data.get("items", []):
-        link = (item.get("link") or "").strip()
-        title = _strip_tags(item.get("title") or "")
-        snippet = _strip_tags(item.get("snippet") or "")
-        if not link or not title:
-            continue
-        domain = _domain_from_url(link)
-        source, guide_id = _guide_id_for_url(link)
-        trust_bonus = 60 if any(d in domain for d in TRUSTED_GUIDE_DOMAINS) else 0
-        out.append(
-            {
-                "guide_id": guide_id,
-                "source": source if source != "web" else "google",
-                "title": title,
-                "author": domain or "Google",
-                "description": snippet,
-                "rating_stars": 5 if trust_bonus else 4,
-                "url": link,
-                "appid": 0,
-                "game_name": game_name or title,
-                "game_image": "",
-                "match_score": 150 + trust_bonus,
-                "match_reason": f"Google • {domain}" if domain else "Google",
-            }
-        )
-    return out
-
-
 def _search_powerpyx(query: str, game_name: str = "") -> List[Dict[str, Any]]:
     cleaned = _clean_game_name(query)
     if not cleaned:
@@ -1873,16 +1816,13 @@ def search_walkthroughs(
     location_hint: str = "",
     walkthrough_only: bool = True,
     english_only: bool = True,
-    google_api_key: str = "",
-    google_cx: str = "",
 ) -> Dict[str, Any]:
     """
     One-step unified walkthrough search across:
-    1. Google Custom Search API (when configured)
-    2. IGN Wikis (with automatic broad & location-aware matching)
-    3. PowerPyx & Game8 (direct walkthrough articles)
-    4. Steam Community Guides (when appid is known or resolved via Steam Store)
-    5. StrategyWiki
+    1. IGN Wikis (with automatic broad & location-aware matching)
+    2. PowerPyx & Game8 (direct walkthrough articles)
+    3. Steam Community Guides (when appid is known or resolved via Steam Store)
+    4. StrategyWiki
     """
     raw_q = (query or game_name or "").strip()
     if not raw_q:
@@ -1896,7 +1836,6 @@ def search_walkthroughs(
         location_hint.strip().lower(),
         bool(walkthrough_only),
         bool(english_only),
-        bool(google_api_key.strip() and google_cx.strip()),
     )
     cached = _UNIFIED_CACHE.get(cache_key)
     if cached and (time.time() - cached[0]) < CACHE_TTL_SECONDS:
@@ -1992,11 +1931,6 @@ def search_walkthroughs(
     all_guides: List[Dict[str, Any]] = []
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
-        f_google = (
-            pool.submit(_search_google_custom, raw_q, google_api_key, google_cx, effective_game)
-            if google_api_key.strip() and google_cx.strip()
-            else None
-        )
         f_ign = pool.submit(run_ign_pipeline)
         f_pp = pool.submit(_search_powerpyx, raw_q, effective_game)
         f_g8 = pool.submit(_search_game8, raw_q, effective_game)
@@ -2012,7 +1946,6 @@ def search_walkthroughs(
         )
 
         for label, fut in (
-            ("Google", f_google),
             ("IGN", f_ign),
             ("PowerPyx", f_pp),
             ("Game8", f_g8),
@@ -2020,8 +1953,6 @@ def search_walkthroughs(
             ("Steam", f_steam),
             ("StrategyWiki", f_wiki),
         ):
-            if fut is None:
-                continue
             try:
                 all_guides.extend(fut.result(timeout=12))
             except Exception as exc:

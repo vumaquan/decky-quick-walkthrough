@@ -11,8 +11,6 @@ export interface PluginSettings {
   walkthrough_only: boolean;
   hide_spoilers: boolean;
   auto_cache_saved: boolean;
-  google_api_key?: string;
-  google_cx?: string;
 }
 
 export interface GameSearchResult {
