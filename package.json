@@ -1,6 +1,6 @@
 {
   "name": "decky-quick-walkthrough",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Quickly search, read, bookmark, and resume game walkthroughs directly inside SteamOS via Decky Loader.",
   "type": "module",
   "scripts": {

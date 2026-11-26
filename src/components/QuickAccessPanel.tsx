@@ -41,6 +41,7 @@ import {
   updateSettings,
   withTimeout,
 } from "../api";
+import { formatRelativeTime, getStrings } from "../i18n";
 import {
   mergeLibraryGames,
   removeLocalSavedGame,
@@ -56,19 +57,11 @@ import {
   GameSearchResult,
   GuideSource,
   GuideSummary,
+  LanguageOption,
   PluginSettings,
   SavedGameEntry,
 } from "../types";
 import { EmbeddedBrowser } from "./EmbeddedBrowser";
-
-function formatRelativeTime(epochSec: number): string {
-  if (!epochSec) return "";
-  const diff = Math.max(0, Math.floor(Date.now() / 1000 - epochSec));
-  if (diff < 60) return "Vừa xong";
-  if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
-  return `${Math.floor(diff / 86400)} ngày trước`;
-}
 
 function calcOverallProgress(entry: SavedGameEntry): number {
   if (!entry.total_sections || entry.total_sections <= 0) return 0;
@@ -120,6 +113,9 @@ export const QuickAccessPanel: FC = () => {
     settings,
     savedGames: games,
   } = useSharedStore();
+  const s = getStrings(settings.language);
+  const sRef = useRef(s);
+  sRef.current = s;
   const setTab = setQamTab;
 
   // Whenever user switches to Đọc (including from Đã lưu scrolled down), reset QAM scroll to top
@@ -164,7 +160,7 @@ export const QuickAccessPanel: FC = () => {
       const lib = await withTimeout(
         getLibrary(),
         8000,
-        "Không phản hồi từ backend plugin."
+        sRef.current.errBackendNoResponse
       );
       mergeLibraryGames(lib.games || []);
       if (lib.settings) {
@@ -173,7 +169,7 @@ export const QuickAccessPanel: FC = () => {
     } catch (e: any) {
       console.error("Failed to load library:", e);
       if (games.length === 0) {
-        setLibraryError(e?.message || "Lỗi kết nối backend Decky.");
+        setLibraryError(e?.message || sRef.current.errBackendConnect);
       }
     } finally {
       setLibraryLoading(false);
@@ -279,14 +275,14 @@ export const QuickAccessPanel: FC = () => {
             effectiveHint
           ),
           25000,
-          "Tìm walkthrough quá thời gian chờ."
+          sRef.current.errSearchTimeout
         );
         setGuides(res.guides || []);
         setFallbackAllGuides(Boolean(res.fallback_all_guides));
         setSourceErrors(res.errors || []);
       } catch (e: any) {
         console.error(e);
-        setGuidesError(e?.message || "Không thể tải danh sách guide.");
+        setGuidesError(e?.message || sRef.current.errLoadGuidesFailed);
       } finally {
         setLoadingGuides(false);
       }
@@ -329,7 +325,7 @@ export const QuickAccessPanel: FC = () => {
             settings.english_only
           ),
           25000,
-          "Tìm walkthrough quá thời gian chờ."
+          sRef.current.errSearchTimeout
         );
         setGuides(res.guides || []);
         setSourceErrors(res.errors || []);
@@ -338,7 +334,7 @@ export const QuickAccessPanel: FC = () => {
         }
       } catch (e: any) {
         console.error(e);
-        setGuidesError(e?.message || "Không thể tìm kiếm walkthrough.");
+        setGuidesError(e?.message || sRef.current.errSearchGuidesFailed);
       } finally {
         setLoadingGuides(false);
       }
@@ -466,7 +462,7 @@ export const QuickAccessPanel: FC = () => {
                 whiteSpace: "nowrap",
               }}
             >
-              Đang mở: {activeTarget.guide_title || activeTarget.game_name}
+              {s.currentlyOpen(activeTarget.guide_title || activeTarget.game_name)}
             </span>
           </DialogButton>
         </div>
@@ -476,7 +472,7 @@ export const QuickAccessPanel: FC = () => {
       {tab === "library" ? (
         <>
           {runningGame ? (
-            <PanelSection title="Đang chơi">
+            <PanelSection title={s.nowPlayingSection}>
               <PanelSectionRow>
                 <div
                   style={{
@@ -507,15 +503,17 @@ export const QuickAccessPanel: FC = () => {
                   </div>
                   {runningGame.locationHint ? (
                     <div style={{ fontSize: "11px", color: "#80e27e" }}>
-                      Vị trí trong game: <strong>{runningGame.locationHint}</strong>
+                      {s.inGameLocation} <strong>{runningGame.locationHint}</strong>
                     </div>
                   ) : null}
                   {runningSavedEntry && runningSavedEntry.active_guide_id ? (
                     <>
                       <div style={{ fontSize: "11px", color: "#c7d5e0" }}>
-                        Đang xem: <strong>{runningSavedEntry.section_title}</strong> (Mục{" "}
-                        {runningSavedEntry.section_index + 1}/
-                        {runningSavedEntry.total_sections})
+                        {s.readingProgressPrefix} <strong>{runningSavedEntry.section_title}</strong>{" "}
+                        {s.readingProgressPart(
+                          runningSavedEntry.section_index + 1,
+                          runningSavedEntry.total_sections
+                        )}
                       </div>
                       <Focusable
                         flow-children="horizontal"
@@ -536,7 +534,7 @@ export const QuickAccessPanel: FC = () => {
                             }}
                           >
                             <FaPlay size={10} />
-                            <span>Mở tiếp</span>
+                            <span>{s.resumeBtn}</span>
                           </DialogButton>
                         </div>
                         <div style={{ width: "36px", flexShrink: 0 }}>
@@ -583,7 +581,7 @@ export const QuickAccessPanel: FC = () => {
                           }}
                         >
                           <FaSearch size={10} />
-                          <span>Tìm Guide</span>
+                          <span>{s.findGuideBtn}</span>
                         </DialogButton>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -614,7 +612,7 @@ export const QuickAccessPanel: FC = () => {
                           }}
                         >
                           <FaGlobe size={10} />
-                          <span>Web Google</span>
+                          <span>{s.webGoogleBtn}</span>
                         </DialogButton>
                       </div>
                     </Focusable>
@@ -624,10 +622,10 @@ export const QuickAccessPanel: FC = () => {
             </PanelSection>
           ) : null}
 
-          <PanelSection title={`Game đã lưu & vừa xem (${games.length})`}>
+          <PanelSection title={s.savedGamesSection(games.length)}>
             {libraryLoading ? (
               <PanelSectionRow>
-                <CompactSpinner text="Đang tải danh sách đã lưu..." />
+                <CompactSpinner text={s.loadingSaved} />
               </PanelSectionRow>
             ) : libraryError ? (
               <PanelSectionRow>
@@ -640,7 +638,7 @@ export const QuickAccessPanel: FC = () => {
                     }}
                     style={{ width: "100%", minWidth: 0, padding: "6px 10px", fontSize: "12px" }}
                   >
-                    Thử lại
+                    {s.retryBtn}
                   </DialogButton>
                 </div>
               </PanelSectionRow>
@@ -654,8 +652,9 @@ export const QuickAccessPanel: FC = () => {
                     lineHeight: 1.4,
                   }}
                 >
-                  Chưa có game nào được lưu. Chuyển sang tab <strong>Tìm</strong> để
-                  tìm walkthrough từ IGN Wikis & Steam Guides!
+                  {s.noSavedBeforeTab}
+                  <strong>{s.tabSearch}</strong>
+                  {s.noSavedAfterTab}
                 </div>
               </PanelSectionRow>
             ) : (
@@ -712,7 +711,7 @@ export const QuickAccessPanel: FC = () => {
                               whiteSpace: "nowrap",
                             }}
                           >
-                            {entry.active_guide_title || "Chưa chọn guide"}
+                            {entry.active_guide_title || s.noGuideSelected}
                           </div>
                         </div>
                       </div>
@@ -720,9 +719,9 @@ export const QuickAccessPanel: FC = () => {
                       {entry.active_guide_id ? (
                         <>
                           <div style={{ fontSize: "11px", color: "#66c0f4" }}>
-                            Đang dừng ở: {entry.section_title || "Mục đầu"} (
+                            {s.stoppedAtPrefix} {entry.section_title || s.firstSection} (
                             {entry.section_index + 1}/{entry.total_sections}) •{" "}
-                            {formatRelativeTime(entry.updated_at)}
+                            {formatRelativeTime(entry.updated_at, settings.language)}
                           </div>
                           <ProgressBar nProgress={pct} />
                         </>
@@ -748,7 +747,7 @@ export const QuickAccessPanel: FC = () => {
                               }}
                             >
                               <FaPlay size={9} />
-                              <span>Mở tiếp</span>
+                              <span>{s.resumeBtn}</span>
                             </DialogButton>
                           ) : (
                             <DialogButton
@@ -769,7 +768,7 @@ export const QuickAccessPanel: FC = () => {
                                 fontSize: "11px",
                               }}
                             >
-                              Chọn guide
+                              {s.chooseGuideBtn}
                             </DialogButton>
                           )}
                         </div>
@@ -844,7 +843,7 @@ export const QuickAccessPanel: FC = () => {
       {/* TAB 2: UNIFIED 1-STEP WALKTHROUGH SEARCH */}
       {tab === "search" ? (
         <>
-          <PanelSection title="Tìm nhanh Walkthrough">
+          <PanelSection title={s.quickSearchSection}>
             <PanelSectionRow>
               <Focusable
                 flow-children="horizontal"
@@ -862,10 +861,10 @@ export const QuickAccessPanel: FC = () => {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleUnifiedSearch();
                     }}
-                    placeholder="Tên game + boss/khu vực (vd: elden ring caelid)"
+                    placeholder={s.searchQueryPlaceholder}
                   />
                 </div>
-                <div style={{ width: "54px", flexShrink: 0 }}>
+                <div style={{ width: "56px", flexShrink: 0 }}>
                   <DialogButton
                     onClick={() => handleUnifiedSearch()}
                     style={{
@@ -875,7 +874,7 @@ export const QuickAccessPanel: FC = () => {
                       fontSize: "12px",
                     }}
                   >
-                    Tìm
+                    {s.searchBtn}
                   </DialogButton>
                 </div>
               </Focusable>
@@ -904,10 +903,10 @@ export const QuickAccessPanel: FC = () => {
                         }
                       }
                     }}
-                    placeholder="Lọc khu vực / chương / boss (tùy chọn)"
+                    placeholder={s.filterPlaceholder}
                   />
                 </div>
-                <div style={{ width: "44px", flexShrink: 0 }}>
+                <div style={{ width: "48px", flexShrink: 0 }}>
                   <DialogButton
                     onClick={() => {
                       if (selectedGame) {
@@ -923,7 +922,7 @@ export const QuickAccessPanel: FC = () => {
                       fontSize: "11px",
                     }}
                   >
-                    Lọc
+                    {s.filterBtn}
                   </DialogButton>
                 </div>
               </Focusable>
@@ -932,7 +931,7 @@ export const QuickAccessPanel: FC = () => {
             {runningGame ? (
               <PanelSectionRow>
                 <ButtonItem layout="below" onClick={handleFindRunningGameGuides}>
-                  Tìm cho game đang chơi: {runningGame.name}
+                  {s.findForRunningGame(runningGame.name)}
                 </ButtonItem>
               </PanelSectionRow>
             ) : null}
@@ -966,7 +965,7 @@ export const QuickAccessPanel: FC = () => {
                     }}
                   >
                     <FaGlobe size={10} />
-                    <span>Web IGN</span>
+                    <span>{s.webIgnBtn}</span>
                   </DialogButton>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -994,7 +993,7 @@ export const QuickAccessPanel: FC = () => {
                     }}
                   >
                     <FaGlobe size={10} />
-                    <span>Web Google</span>
+                    <span>{s.webGoogleBtn}</span>
                   </DialogButton>
                 </div>
               </Focusable>
@@ -1004,23 +1003,21 @@ export const QuickAccessPanel: FC = () => {
           <PanelSection
             title={
               selectedGame
-                ? `Walkthrough: ${selectedGame.name}`
-                : guides.length > 0
-                ? `Kết quả Walkthrough (${guides.length})`
-                : "Kết quả Walkthrough"
+                ? s.resultsHeaderGame(selectedGame.name)
+                : s.resultsHeaderCount(guides.length)
             }
           >
             {fallbackAllGuides ? (
               <PanelSectionRow>
                 <div style={{ fontSize: "11px", color: "#f5c542" }}>
-                  Đang hiển thị các guide top-rated của game.
+                  {s.fallbackTopRatedNote}
                 </div>
               </PanelSectionRow>
             ) : null}
 
             {loadingGuides ? (
               <PanelSectionRow>
-                <CompactSpinner text="Đang tìm walkthrough..." />
+                <CompactSpinner text={s.searchingWalkthroughs} />
               </PanelSectionRow>
             ) : guidesError ? (
               <PanelSectionRow>
@@ -1034,7 +1031,7 @@ export const QuickAccessPanel: FC = () => {
                     }
                     style={{ width: "100%", minWidth: 0, padding: "6px 8px", fontSize: "12px" }}
                   >
-                    Thử lại
+                    {s.retryBtn}
                   </DialogButton>
                 </div>
               </PanelSectionRow>
@@ -1043,12 +1040,12 @@ export const QuickAccessPanel: FC = () => {
                 <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
                   <div style={{ fontSize: "12px", color: "#8f98a0", lineHeight: 1.4 }}>
                     {hasSearchedGuides || selectedGame
-                      ? `Không tìm thấy guide cho "${selectedGame?.name || query}". Thử gõ tên tiếng Anh ngắn hơn (vd: "zelda ocarina of time") hoặc dán thẳng URL trang guide.`
-                      : "Nhập tên game (kèm tên boss/khu vực nếu muốn) để tìm và đọc walkthrough ngay trên plugin."}
+                      ? s.noGuidesFound(selectedGame?.name || query)
+                      : s.searchEmptyPrompt}
                   </div>
                   {sourceErrors.length > 0 ? (
                     <div style={{ fontSize: "10px", color: "#ff9b9b", lineHeight: 1.3 }}>
-                      Chi tiết: {sourceErrors.join(" | ")}
+                      {s.detailsPrefix} {sourceErrors.join(" | ")}
                     </div>
                   ) : null}
                   {hasSearchedGuides || selectedGame ? (
@@ -1068,7 +1065,7 @@ export const QuickAccessPanel: FC = () => {
                       }}
                     >
                       <FaExternalLinkAlt size={10} />
-                      <span>Tìm trên Google bằng trình duyệt ngoài</span>
+                      <span>{s.searchGoogleExternal}</span>
                     </DialogButton>
                   ) : null}
                 </div>
@@ -1195,20 +1192,33 @@ export const QuickAccessPanel: FC = () => {
         </div>
       ) : tab === "reader" ? (
         <div style={{ fontSize: "12px", color: "#8f98a0", padding: "10px" }}>
-          Chọn một game đã lưu hoặc tìm walkthrough mới để bắt đầu đọc.
+          {s.readerEmptyState}
         </div>
       ) : null}
 
       {/* TAB 4: SETTINGS */}
       {tab === "settings" ? (
-        <PanelSection title="Cài đặt Quick Walkthrough">
+        <PanelSection title={s.settingsTitle}>
           <PanelSectionRow>
             <DropdownItem
-              label="Cỡ chữ đọc hướng dẫn"
+              label={s.languageLabel}
               rgOptions={[
-                { data: "small", label: "Nhỏ (Small)" },
-                { data: "medium", label: "Vừa (Medium)" },
-                { data: "large", label: "Lớn (Large)" },
+                { data: "en", label: s.languageEn },
+                { data: "vi", label: s.languageVi },
+              ]}
+              selectedOption={settings.language || "en"}
+              onChange={(opt) =>
+                handleUpdateSetting("language", opt.data as LanguageOption)
+              }
+            />
+          </PanelSectionRow>
+          <PanelSectionRow>
+            <DropdownItem
+              label={s.fontSizeLabel}
+              rgOptions={[
+                { data: "small", label: s.fontSmall },
+                { data: "medium", label: s.fontMedium },
+                { data: "large", label: s.fontLarge },
               ]}
               selectedOption={settings.font_size}
               onChange={(opt) =>
@@ -1218,47 +1228,47 @@ export const QuickAccessPanel: FC = () => {
           </PanelSectionRow>
           <PanelSectionRow>
             <ToggleField
-              label="Ưu tiên tag Walkthroughs"
-              description="Lọc guide hướng dẫn chơi trên Steam (tự fallback nếu không có)"
+              label={s.walkthroughOnlyLabel}
+              description={s.walkthroughOnlyDesc}
               checked={settings.walkthrough_only}
               onChange={(val) => handleUpdateSetting("walkthrough_only", val)}
             />
           </PanelSectionRow>
           <PanelSectionRow>
             <ToggleField
-              label="Ưu tiên tiếng Anh"
-              description="Lọc Steam Guides tiếng Anh để tránh lẫn ngôn ngữ khác"
+              label={s.englishOnlyLabel}
+              description={s.englishOnlyDesc}
               checked={settings.english_only}
               onChange={(val) => handleUpdateSetting("english_only", val)}
             />
           </PanelSectionRow>
           <PanelSectionRow>
             <ToggleField
-              label="Ẩn Spoiler mặc định"
-              description="Yêu cầu bấm vào khối Spoiler để hiện nội dung"
+              label={s.hideSpoilersLabel}
+              description={s.hideSpoilersDesc}
               checked={settings.hide_spoilers}
               onChange={(val) => handleUpdateSetting("hide_spoilers", val)}
             />
           </PanelSectionRow>
           <PanelSectionRow>
             <ToggleField
-              label="Lưu cache đọc Offline"
-              description="Tự lưu nội dung guide đã mở để xem tiếp khi không có Wi-Fi"
+              label={s.autoCacheLabel}
+              description={s.autoCacheDesc}
               checked={settings.auto_cache_saved}
               onChange={(val) => handleUpdateSetting("auto_cache_saved", val)}
             />
           </PanelSectionRow>
           <PanelSectionRow>
             <TextField
-              label="Google Custom Search API Key (tùy chọn - Project cũ)"
+              label={s.googleApiKeyLabel}
               value={settings.google_api_key || ""}
               onChange={(e) => handleUpdateSetting("google_api_key", e.target.value)}
-              placeholder="Để trống nếu không dùng"
+              placeholder={s.googleApiKeyPlaceholder}
             />
           </PanelSectionRow>
           <PanelSectionRow>
             <TextField
-              label="Google Search Engine ID / CX (tùy chọn)"
+              label={s.googleCxLabel}
               value={settings.google_cx || ""}
               onChange={(e) => handleUpdateSetting("google_cx", e.target.value)}
               placeholder="cx id (Programmable Search)"
@@ -1274,7 +1284,7 @@ export const QuickAccessPanel: FC = () => {
                   const res = await withTimeout(
                     diagnoseNetwork(),
                     15000,
-                    "Kiểm tra mạng quá thời gian chờ."
+                    sRef.current.diagTimeout
                   );
                   setDiagResults(res);
                 } catch (e: any) {
@@ -1283,7 +1293,7 @@ export const QuickAccessPanel: FC = () => {
                       name: "Backend",
                       ok: false,
                       ms: 0,
-                      error: e?.message || "Lỗi kiểm tra mạng",
+                      error: e?.message || sRef.current.diagError,
                     },
                   ]);
                 } finally {
@@ -1291,7 +1301,7 @@ export const QuickAccessPanel: FC = () => {
                 }
               }}
             >
-              {diagLoading ? "Đang kiểm tra kết nối..." : "Kiểm tra kết nối mạng (SteamOS)"}
+              {diagLoading ? s.diagRunning : s.diagButton}
             </ButtonItem>
           </PanelSectionRow>
           {diagResults ? (
@@ -1310,7 +1320,8 @@ export const QuickAccessPanel: FC = () => {
               >
                 {diagResults.map((r) => (
                   <div key={r.name} style={{ color: r.ok ? "#80e27e" : "#ff8a8a" }}>
-                    <strong>{r.name}</strong>: {r.ok ? `OK (${r.ms}ms)` : `Lỗi (${r.ms}ms) - ${r.error}`}
+                    <strong>{r.name}</strong>:{" "}
+                    {r.ok ? `OK (${r.ms}ms)` : `${s.diagErrorLabel} (${r.ms}ms) - ${r.error}`}
                   </div>
                 ))}
               </div>
@@ -1322,12 +1333,12 @@ export const QuickAccessPanel: FC = () => {
               onClick={async () => {
                 const count = await clearCache();
                 toaster.toast({
-                  title: "Đã xóa cache offline",
-                  body: `Đã dọn ${count} guide đã cache.`,
+                  title: sRef.current.clearCacheToastTitle,
+                  body: sRef.current.clearCacheToastBody(count),
                 });
               }}
             >
-              Xóa cache guide offline
+              {s.clearCacheButton}
             </ButtonItem>
           </PanelSectionRow>
         </PanelSection>

@@ -4,11 +4,13 @@ import { FC, useEffect, useRef } from "react";
 import { FaBookmark, FaBookOpen, FaCog, FaSearch } from "react-icons/fa";
 import { FULL_READER_ROUTE } from "./api";
 import { QuickAccessPanel } from "./components/QuickAccessPanel";
+import { getStrings } from "./i18n";
 import { FullReaderPage } from "./pages/FullReaderPage";
 import { setQamTab, useSharedStore } from "./state";
 
 const HeaderTabBar: FC = () => {
-  const { activeTab, qamChromeHidden } = useSharedStore();
+  const { activeTab, qamChromeHidden, settings } = useSharedStore();
+  const s = getStrings(settings.language);
   const barRef = useRef<HTMLDivElement | null>(null);
   const shouldHideHeader = qamChromeHidden && activeTab === "reader";
 
@@ -104,7 +106,7 @@ const HeaderTabBar: FC = () => {
             }}
           >
             <FaBookmark size={9} />
-            <span>Đã lưu</span>
+            <span>{s.tabSaved}</span>
           </DialogButton>
         </div>
         <div style={{ flex: 1, minWidth: 0, height: "28px" }}>
@@ -127,7 +129,7 @@ const HeaderTabBar: FC = () => {
             }}
           >
             <FaSearch size={9} />
-            <span>Tìm</span>
+            <span>{s.tabSearch}</span>
           </DialogButton>
         </div>
         <div style={{ width: "30px", flexShrink: 0, height: "28px" }}>

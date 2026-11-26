@@ -2,7 +2,10 @@ export type GuideSource = "google" | "ign" | "web" | "steam" | "strategywiki";
 
 export type FontSizeOption = "small" | "medium" | "large";
 
+export type LanguageOption = "en" | "vi";
+
 export interface PluginSettings {
+  language?: LanguageOption;
   font_size: FontSizeOption;
   english_only: boolean;
   walkthrough_only: boolean;

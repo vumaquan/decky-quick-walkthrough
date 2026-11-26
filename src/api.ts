@@ -1,5 +1,6 @@
 import { callable, executeInTab, fetchNoCors } from "@decky/api";
 import { Navigation, Router } from "@decky/ui";
+import { getStrings, loadStoredLanguage } from "./i18n";
 import {
   GameSearchResult,
   GuideContent,
@@ -123,11 +124,12 @@ export const diagnoseNetwork = callable<[], NetworkDiagResult[]>(
 );
 
 async function fetchHtmlViaBrowserView(url: string, timeoutMs = 13000): Promise<string> {
+  const s = getStrings(loadStoredLanguage());
   const winInst =
     Router.WindowStore?.GamepadUIMainWindowInstance ||
     Router.WindowStore?.MainWindowInstance;
   if (!winInst || typeof winInst.CreateBrowserView !== "function") {
-    throw new Error("Steam BrowserView không khả dụng.");
+    throw new Error(s.errSteamBrowserViewUnavailable);
   }
 
   let created: any = null;
@@ -175,7 +177,7 @@ async function fetchHtmlViaBrowserView(url: string, timeoutMs = 13000): Promise<
     };
 
     const hardTimer = window.setTimeout(() => {
-      fail(new Error("Trình duyệt nền tải trang quá thời gian chờ."));
+      fail(new Error(s.errBackgroundBrowserTimeout));
     }, timeoutMs);
 
     try {
@@ -183,7 +185,7 @@ async function fetchHtmlViaBrowserView(url: string, timeoutMs = 13000): Promise<
         strInitialURL: url,
       });
       if (!created) {
-        fail(new Error("Không thể tạo BrowserView nền."));
+        fail(new Error(s.errBackgroundBrowserCreateFailed));
         return;
       }
       const popup = created.GetBrowser?.() || created.m_browserView;
@@ -206,13 +208,13 @@ async function fetchHtmlViaBrowserView(url: string, timeoutMs = 13000): Promise<
           window.setTimeout(() => tryCaptureDom(), 450);
         });
         popup.on("load-error", (_code: number, _errUrl: string, desc: string) => {
-          fail(new Error(desc || "Không tải được trang."));
+          fail(new Error(desc || s.errPageLoadFailed));
         });
       }
 
       created.LoadURL?.(url);
     } catch (e: any) {
-      fail(new Error(e?.message || "Lỗi BrowserView nền."));
+      fail(new Error(e?.message || s.errBackgroundBrowser));
     }
   });
 }
@@ -224,12 +226,13 @@ export async function fetchGuideWithFallback(
   explicitUrl?: string,
   prefetchedHtml?: string
 ): Promise<GuideContent> {
+  const s = getStrings(loadStoredLanguage());
   if (prefetchedHtml && prefetchedHtml.trim().length > 200) {
     try {
       return await withTimeout(
         parseGuideHtml(source, guideId, prefetchedHtml),
         5000,
-        "Phân tích HTML quá lâu."
+        s.errHtmlParseTimeout
       );
     } catch {
       // Fall through to network fetch if local DOM snapshot failed to parse
@@ -241,7 +244,7 @@ export async function fetchGuideWithFallback(
   const tryBackend = withTimeout(
     getGuide(source, guideId, forceRefresh),
     16000,
-    "Backend tải guide quá lâu."
+    s.errBackendGuideTimeout
   );
 
   if (!url || source === "strategywiki") {
@@ -258,7 +261,7 @@ export async function fetchGuideWithFallback(
         },
       }),
       12000,
-      "Decky fetchNoCors quá thời gian chờ."
+      s.errDeckyFetchTimeout
     );
     if (!resp.ok) {
       throw new Error(`HTTP ${resp.status}`);
@@ -267,7 +270,7 @@ export async function fetchGuideWithFallback(
     return await withTimeout(
       parseGuideHtml(source, guideId, html),
       6000,
-      "Phân tích HTML quá lâu."
+      s.errHtmlParseTimeout
     );
   };
 
@@ -276,7 +279,7 @@ export async function fetchGuideWithFallback(
     return await withTimeout(
       parseGuideHtml(source, guideId, html),
       6000,
-      "Phân tích HTML quá lâu."
+      s.errHtmlParseTimeout
     );
   };
 
@@ -330,11 +333,12 @@ export async function fetchGuideWithFallback(
 export function withTimeout<T>(
   promise: Promise<T>,
   ms = 12000,
-  label = "Thao tác quá thời gian chờ"
+  label?: string
 ): Promise<T> {
+  const effectiveLabel = label || getStrings(loadStoredLanguage()).errOperationTimeout;
   return new Promise<T>((resolve, reject) => {
     const timer = window.setTimeout(() => {
-      reject(new Error(label));
+      reject(new Error(effectiveLabel));
     }, ms);
     promise.then(
       (val) => {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { loadStoredLanguage, normalizeLanguage, persistStoredLanguage } from "./i18n";
 import { ActiveReaderTarget, PluginSettings, SavedGameEntry } from "./types";
 
 export type QamTab = "library" | "search" | "reader" | "settings";
@@ -7,6 +8,7 @@ const LAST_TARGET_KEY = "qw_last_active_target_v1";
 const LOCAL_GAMES_KEY = "qw_saved_games_v1";
 
 const DEFAULT_SETTINGS: PluginSettings = {
+  language: loadStoredLanguage(),
   font_size: "medium",
   english_only: true,
   walkthrough_only: true,
@@ -132,7 +134,9 @@ export function patchActiveReaderMeta(patch: Partial<ActiveReaderTarget>): void 
 }
 
 export function setSharedSettings(settings: PluginSettings): void {
-  store = { ...store, settings: { ...settings } };
+  const language = normalizeLanguage(settings.language);
+  persistStoredLanguage(language);
+  store = { ...store, settings: { ...settings, language } };
   notify();
 }
 

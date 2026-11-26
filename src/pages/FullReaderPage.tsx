@@ -3,11 +3,13 @@ import { FC, useCallback, useEffect, useState } from "react";
 import { FaBookmark, FaPlay, FaSteam, FaTimes } from "react-icons/fa";
 import { getLibrary } from "../api";
 import { EmbeddedBrowser } from "../components/EmbeddedBrowser";
+import { getStrings } from "../i18n";
 import { mergeLibraryGames, setActiveReaderTarget, useSharedStore } from "../state";
 import { SavedGameEntry } from "../types";
 
 export const FullReaderPage: FC = () => {
-  const { activeTarget, targetLoadVersion, savedGames: games } = useSharedStore();
+  const { activeTarget, targetLoadVersion, savedGames: games, settings } = useSharedStore();
+  const s = getStrings(settings.language);
   const [showSavedDrawer, setShowSavedDrawer] = useState(false);
 
   const refreshLibrary = useCallback(async () => {
@@ -83,7 +85,7 @@ export const FullReaderPage: FC = () => {
           }}
         >
           <FaBookmark size={9} />
-          <span>Đã lưu ({savedList.length})</span>
+          <span>{s.savedCountLabel(savedList.length)}</span>
         </DialogButton>
       </div>
     </>
@@ -119,7 +121,9 @@ export const FullReaderPage: FC = () => {
               {headerControls}
             </Focusable>
             <div style={{ color: "#8f98a0", fontSize: "13px" }}>
-              Bấm nút <strong>Đã lưu</strong> ở trên để chọn game, hoặc mở Quick Access Menu (...) để tìm walkthrough mới.
+              {s.fullReaderEmptyBefore}
+              <strong>{s.tabSaved}</strong>
+              {s.fullReaderEmptyAfter}
             </div>
           </div>
         )}
@@ -156,7 +160,7 @@ export const FullReaderPage: FC = () => {
             }}
           >
             <span style={{ fontSize: "12px", fontWeight: 700, color: "#66c0f4" }}>
-              Game đã lưu & Đọc gần đây ({savedList.length})
+              {s.savedAndRecentDrawer(savedList.length)}
             </span>
             <div style={{ width: "28px" }}>
               <DialogButton
@@ -177,7 +181,7 @@ export const FullReaderPage: FC = () => {
 
           {savedList.length === 0 ? (
             <div style={{ fontSize: "12px", color: "#8f98a0", padding: "6px 0" }}>
-              Chưa có game nào được lưu.
+              {s.noSavedGamesShort}
             </div>
           ) : (
             savedList.map((entry) => {

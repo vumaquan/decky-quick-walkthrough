@@ -32,6 +32,7 @@ import {
   saveProgress,
   setGameBookmarked,
 } from "../api";
+import { getStrings } from "../i18n";
 import {
   patchActiveReaderMeta,
   setQamChromeHidden,
@@ -300,7 +301,10 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
   headerLeft,
   onProgressSaved,
 }) => {
-  const { qamChromeHidden } = useSharedStore();
+  const { qamChromeHidden, settings } = useSharedStore();
+  const s = getStrings(settings.language);
+  const sRef = useRef(s);
+  sRef.current = s;
   const chromeHidden = compact && qamChromeHidden;
   const qamVisible = useQuickAccessVisible();
   const initialUrl =
@@ -431,7 +435,7 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
 
       if (showToast) {
         toaster.toast({
-          title: isBookmarked ? "Đã lưu trang web" : "Đã bỏ lưu trang",
+          title: isBookmarked ? sRef.current.toastPageSaved : sRef.current.toastPageUnsaved,
           body: title || derivedName,
         });
       }
@@ -547,7 +551,7 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
         popup.on("load-error", (_code: number, errUrl: string, desc: string) => {
           if (disposed) return;
           setLoading(false);
-          setLoadError(desc ? `${desc} (${errUrl})` : `Không tải được ${errUrl}`);
+          setLoadError(sRef.current.cannotLoadUrl(errUrl, desc));
         });
       }
     };
@@ -644,7 +648,7 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
 
         // Fullscreen / SteamBrowserContainer path (GamepadUIMainWindowInstance)
         if (!SteamBrowserContainer) {
-          setInitError("Steam BrowserContainer không khả dụng ở giao diện này.");
+          setInitError(sRef.current.errBrowserContainerUnavailable);
           return;
         }
 
@@ -654,7 +658,7 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
           winStore?.MainWindowInstance;
 
         if (!winInst || typeof winInst.CreateBrowserView !== "function") {
-          setInitError("WindowStore.CreateBrowserView không khả dụng.");
+          setInitError(sRef.current.errCreateBrowserViewUnavailable);
           return;
         }
 
@@ -669,7 +673,7 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
           return;
         }
         if (!created) {
-          setInitError("Không thể khởi tạo BrowserView.");
+          setInitError(sRef.current.errCreateBrowserViewFailed);
           return;
         }
 
@@ -715,7 +719,7 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
         persistCurrentPage(startUrl, pageTitleRef.current);
       } catch (e: any) {
         if (!disposed) {
-          setInitError(e?.message || "Lỗi khởi tạo trình duyệt nhúng.");
+          setInitError(e?.message || sRef.current.errEmbeddedBrowserInit);
         }
       }
     };
@@ -859,7 +863,7 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "8px 0" }}>
         {headerLeft}
         <div style={{ fontSize: "12px", color: "#ff8a8a", lineHeight: 1.4 }}>
-          {initError || "BrowserContainer không khả dụng."}
+          {initError || s.errBrowserContainerShort}
         </div>
         <Focusable flow-children="horizontal" style={{ display: "flex", gap: "6px" }}>
           {compact ? (
@@ -868,7 +872,7 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
                 onClick={handleOpenFullscreen}
                 style={{ width: "100%", minWidth: 0, padding: "6px 6px", fontSize: "11px" }}
               >
-                Đọc (Toàn màn hình)
+                {s.readFullscreen}
               </DialogButton>
             </div>
           ) : null}
@@ -877,7 +881,7 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
               onClick={() => openUrlInBrowser(currentUrl)}
               style={{ width: "100%", minWidth: 0, padding: "6px 6px", fontSize: "11px" }}
             >
-              Mở trình duyệt Steam
+              {s.openSteamBrowser}
             </DialogButton>
           </div>
         </Focusable>
@@ -948,7 +952,7 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
           ) : (
             <FaRegBookmark size={9} />
           )}
-          {!compact ? <span>{bookmarked ? "Đã lưu" : "Lưu"}</span> : null}
+          {!compact ? <span>{bookmarked ? s.savedLabel : s.saveLabel}</span> : null}
         </DialogButton>
       </div>
     </>
@@ -1032,7 +1036,7 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
             }}
           >
             <FaChevronDown size={8} />
-            <span>Hiện thanh công cụ</span>
+            <span>{s.showToolbar}</span>
           </DialogButton>
         </div>
       ) : (
@@ -1112,7 +1116,7 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
                     }}
                   >
                     <FaExpand size={9} />
-                    <span>Đọc</span>
+                    <span>{s.readLabel}</span>
                   </DialogButton>
                 </div>
               </>
@@ -1142,7 +1146,7 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
 
       {loadError ? (
         <div style={{ fontSize: "11px", color: "#ff8a8a", flexShrink: 0 }}>
-          Lỗi tải trang: {loadError}
+          {s.pageLoadErrorPrefix}: {loadError}
         </div>
       ) : null}
 
