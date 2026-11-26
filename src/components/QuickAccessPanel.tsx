@@ -27,6 +27,7 @@ import {
 import {
   NetworkDiagResult,
   RunningGameInfo,
+  buildQuickSearchUrl,
   clearCache,
   diagnoseNetwork,
   getLibrary,
@@ -36,6 +37,7 @@ import {
   openUrlInBrowser,
   removeGame,
   resolveGuideUrl,
+  searchGoogleViaBrowserView,
   searchWalkthroughs,
   setGameBookmarked,
   updateSettings,
@@ -59,6 +61,7 @@ import {
   GuideSummary,
   LanguageOption,
   PluginSettings,
+  QuickSearchSourceOption,
   SavedGameEntry,
 } from "../types";
 import { EmbeddedBrowser } from "./EmbeddedBrowser";
@@ -153,6 +156,10 @@ export const QuickAccessPanel: FC = () => {
   const [fallbackAllGuides, setFallbackAllGuides] = useState(false);
   const [diagLoading, setDiagLoading] = useState(false);
   const [diagResults, setDiagResults] = useState<NetworkDiagResult[] | null>(null);
+  const searchReqIdRef = useRef(0);
+  const autoSyncedGameKeyRef = useRef("");
+  const lastSyncedHintRef = useRef("");
+  const autoSearchedKeyRef = useRef("");
 
   const refreshLibrary = useCallback(async () => {
     setLibraryError(null);
@@ -291,22 +298,34 @@ export const QuickAccessPanel: FC = () => {
   );
 
   const handleUnifiedSearch = useCallback(
-    async (termOverride?: string, runningOverride?: RunningGameInfo | null, hintOverride?: string) => {
-      const term = (termOverride ?? query).trim();
+    async (
+      termOverride?: string,
+      runningOverride?: RunningGameInfo | null,
+      hintOverride?: string,
+      preserveSelectedGame = false
+    ) => {
+      const activeRun = runningOverride !== undefined ? runningOverride : runningGame;
+      const term = (
+        termOverride ??
+        selectedGame?.name ??
+        activeRun?.name ??
+        query
+      ).trim();
       if (!term) return;
 
-      const activeRun = runningOverride !== undefined ? runningOverride : runningGame;
+      const reqId = ++searchReqIdRef.current;
+
       const matchedRunning =
         activeRun &&
         (term.toLowerCase() === activeRun.name.toLowerCase() ||
           term.toLowerCase().includes(activeRun.name.toLowerCase()));
 
       const effectiveHint =
-        hintOverride !== undefined
-          ? hintOverride
-          : guideSearchText.trim() || (matchedRunning ? activeRun.locationHint : "");
+        hintOverride !== undefined ? hintOverride.trim() : guideSearchText.trim();
 
-      setSelectedGame(null);
+      if (!preserveSelectedGame) {
+        setSelectedGame(null);
+      }
       setHasSearchedGuides(true);
       setLoadingGuides(true);
       setGuidesError(null);
@@ -314,38 +333,104 @@ export const QuickAccessPanel: FC = () => {
       setGuides([]);
       setFallbackAllGuides(false);
 
-      try {
-        const res = await withTimeout(
-          searchWalkthroughs(
-            term,
+      const isDirectUrl = /^https?:\/\//i.test(term);
+      const googleQuery = [term, effectiveHint, "walkthrough"].filter(Boolean).join(" ");
+
+      const googlePromise = isDirectUrl
+        ? Promise.resolve<GuideSummary[]>([])
+        : searchGoogleViaBrowserView(
+            googleQuery,
             matchedRunning ? activeRun.appid : 0,
-            matchedRunning ? activeRun.name : "",
-            effectiveHint,
-            settings.walkthrough_only,
-            settings.english_only
-          ),
-          25000,
-          sRef.current.errSearchTimeout
-        );
+            term,
+            7500
+          ).catch(() => [] as GuideSummary[]);
+
+      const backendPromise = withTimeout(
+        searchWalkthroughs(
+          term,
+          matchedRunning ? activeRun.appid : 0,
+          matchedRunning ? activeRun.name : "",
+          effectiveHint,
+          settings.walkthrough_only,
+          settings.english_only
+        ),
+        25000,
+        sRef.current.errSearchTimeout
+      );
+
+      try {
+        // Prefer live Google Search results first; fall back seamlessly to multi-source backend if empty.
+        const googleResults = await googlePromise;
+        if (reqId !== searchReqIdRef.current) return;
+
+        if (googleResults.length > 0) {
+          setGuides(googleResults);
+          return;
+        }
+
+        const res = await backendPromise;
+        if (reqId !== searchReqIdRef.current) return;
         setGuides(res.guides || []);
         setSourceErrors(res.errors || []);
         if (res.resolved_hint && !guideSearchText.trim()) {
           setGuideSearchText(res.resolved_hint);
         }
       } catch (e: any) {
+        if (reqId !== searchReqIdRef.current) return;
         console.error(e);
         setGuidesError(e?.message || sRef.current.errSearchGuidesFailed);
       } finally {
-        setLoadingGuides(false);
+        if (reqId === searchReqIdRef.current) {
+          setLoadingGuides(false);
+        }
       }
     },
-    [query, guideSearchText, runningGame, settings.walkthrough_only, settings.english_only]
+    [
+      query,
+      guideSearchText,
+      runningGame,
+      selectedGame,
+      settings.walkthrough_only,
+      settings.english_only,
+    ]
   );
+
+  // Sync running game name/location hint and default Walkthrough Results to Google Search on Search tab.
+  useEffect(() => {
+    if (!runningGame) return;
+    const hint = runningGame.locationHint || "";
+    const isNewGame = autoSyncedGameKeyRef.current !== runningGame.game_key;
+    const hintChanged = hint !== lastSyncedHintRef.current;
+
+    if (isNewGame) {
+      autoSyncedGameKeyRef.current = runningGame.game_key;
+      lastSyncedHintRef.current = hint;
+      setQuery(runningGame.name);
+      setGuideSearchText(hint);
+    } else if (hintChanged && hint) {
+      lastSyncedHintRef.current = hint;
+      setGuideSearchText(hint);
+    }
+
+    if (tab === "search" && !selectedGame) {
+      const autoKey = `${runningGame.game_key}::${hint}`;
+      if (autoSearchedKeyRef.current !== autoKey) {
+        autoSearchedKeyRef.current = autoKey;
+        handleUnifiedSearch(
+          runningGame.name,
+          runningGame,
+          isNewGame || hintChanged ? hint : guideSearchText
+        );
+      }
+    }
+  }, [runningGame, tab, selectedGame, guideSearchText, handleUnifiedSearch]);
 
   const handleFindRunningGameGuides = () => {
     if (!runningGame) return;
+    setSelectedGame(null);
     setQuery(runningGame.name);
     setGuideSearchText(runningGame.locationHint || "");
+    autoSearchedKeyRef.current = `${runningGame.game_key}::${runningGame.locationHint || ""}`;
     setTab("search");
     handleUnifiedSearch(runningGame.name, runningGame, runningGame.locationHint || "");
   };
@@ -844,42 +929,61 @@ export const QuickAccessPanel: FC = () => {
       {tab === "search" ? (
         <>
           <PanelSection title={s.quickSearchSection}>
-            <PanelSectionRow>
-              <Focusable
-                flow-children="horizontal"
-                style={{
-                  display: "flex",
-                  gap: "6px",
-                  alignItems: "center",
-                  width: "100%",
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <TextField
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleUnifiedSearch();
-                    }}
-                    placeholder={s.searchQueryPlaceholder}
-                  />
-                </div>
-                <div style={{ width: "56px", flexShrink: 0 }}>
-                  <DialogButton
-                    onClick={() => handleUnifiedSearch()}
+            {/* Game box right under section header (replaces old Game+boss & Search row) */}
+            {runningGame && !selectedGame ? (
+              <PanelSectionRow>
+                <DialogButton
+                  onClick={() => {
+                    setSelectedGame(null);
+                    setQuery(runningGame.name);
+                    handleUnifiedSearch(runningGame.name, runningGame, guideSearchText);
+                  }}
+                  style={{
+                    width: "100%",
+                    minWidth: 0,
+                    padding: "8px 10px",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "7px",
+                    backgroundColor: "rgba(102, 192, 244, 0.14)",
+                  }}
+                >
+                  <FaGamepad color="#66c0f4" size={14} />
+                  <span
                     style={{
-                      width: "100%",
-                      minWidth: 0,
-                      padding: "8px 4px",
-                      fontSize: "12px",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
                     }}
                   >
-                    {s.searchBtn}
-                  </DialogButton>
+                    {runningGame.name}
+                  </span>
+                </DialogButton>
+              </PanelSectionRow>
+            ) : (
+              <PanelSectionRow>
+                <div style={{ width: "100%" }}>
+                  <TextField
+                    value={selectedGame?.name || query}
+                    onChange={(e) => {
+                      if (selectedGame) setSelectedGame(null);
+                      setQuery(e.target.value);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleUnifiedSearch(query, runningGame, guideSearchText);
+                      }
+                    }}
+                    placeholder={s.gameTitlePlaceholder}
+                  />
                 </div>
-              </Focusable>
-            </PanelSectionRow>
+              </PanelSectionRow>
+            )}
 
+            {/* Chapter / location filter row below game box */}
             <PanelSectionRow>
               <Focusable
                 flow-children="horizontal"
@@ -896,10 +1000,15 @@ export const QuickAccessPanel: FC = () => {
                     onChange={(e) => setGuideSearchText(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
-                        if (selectedGame) {
-                          loadGuidesForGame(selectedGame, guideSearchText, guideSearchText);
-                        } else {
-                          handleUnifiedSearch();
+                        const targetName =
+                          selectedGame?.name || runningGame?.name || query.trim();
+                        if (targetName) {
+                          handleUnifiedSearch(
+                            targetName,
+                            selectedGame ? null : runningGame,
+                            guideSearchText,
+                            Boolean(selectedGame)
+                          );
                         }
                       }
                     }}
@@ -909,10 +1018,15 @@ export const QuickAccessPanel: FC = () => {
                 <div style={{ width: "48px", flexShrink: 0 }}>
                   <DialogButton
                     onClick={() => {
-                      if (selectedGame) {
-                        loadGuidesForGame(selectedGame, guideSearchText, guideSearchText);
-                      } else {
-                        handleUnifiedSearch();
+                      const targetName =
+                        selectedGame?.name || runningGame?.name || query.trim();
+                      if (targetName) {
+                        handleUnifiedSearch(
+                          targetName,
+                          selectedGame ? null : runningGame,
+                          guideSearchText,
+                          Boolean(selectedGame)
+                        );
                       }
                     }}
                     style={{
@@ -928,14 +1042,6 @@ export const QuickAccessPanel: FC = () => {
               </Focusable>
             </PanelSectionRow>
 
-            {runningGame ? (
-              <PanelSectionRow>
-                <ButtonItem layout="below" onClick={handleFindRunningGameGuides}>
-                  {s.findForRunningGame(runningGame.name)}
-                </ButtonItem>
-              </PanelSectionRow>
-            ) : null}
-
             <PanelSectionRow>
               <Focusable
                 flow-children="horizontal"
@@ -945,13 +1051,16 @@ export const QuickAccessPanel: FC = () => {
                   <DialogButton
                     onClick={() => {
                       const baseName =
-                        selectedGame?.name || query || runningGame?.name || "walkthrough";
-                      const url = selectedGame?.wiki_slug
-                        ? `https://www.ign.com/wikis/${selectedGame.wiki_slug}`
-                        : `https://www.ign.com/search?q=${encodeURIComponent(
-                            `${baseName} ${guideSearchText}`.trim()
-                          )}`;
-                      openEmbeddedUrl(url, `IGN: ${baseName}`);
+                        selectedGame?.name || runningGame?.name || query.trim() || "walkthrough";
+                      const appid = selectedGame?.appid || runningGame?.appid || 0;
+                      const { url, labelPrefix } = buildQuickSearchUrl(
+                        settings.quick_search_source || "ign",
+                        baseName,
+                        guideSearchText,
+                        appid,
+                        selectedGame?.wiki_slug
+                      );
+                      openEmbeddedUrl(url, `${labelPrefix}: ${baseName}`);
                     }}
                     style={{
                       width: "100%",
@@ -965,14 +1074,14 @@ export const QuickAccessPanel: FC = () => {
                     }}
                   >
                     <FaGlobe size={10} />
-                    <span>{s.webIgnBtn}</span>
+                    <span>{s.quickSearchBtn}</span>
                   </DialogButton>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <DialogButton
                     onClick={() => {
                       const baseName =
-                        selectedGame?.name || query || runningGame?.name || "game";
+                        selectedGame?.name || runningGame?.name || query.trim() || "game";
                       const q = [baseName, guideSearchText.trim(), "walkthrough"]
                         .filter(Boolean)
                         .join(" ");
@@ -993,7 +1102,7 @@ export const QuickAccessPanel: FC = () => {
                     }}
                   >
                     <FaGlobe size={10} />
-                    <span>{s.webGoogleBtn}</span>
+                    <span>{s.googleSearchBtn}</span>
                   </DialogButton>
                 </div>
               </Focusable>
@@ -1024,11 +1133,18 @@ export const QuickAccessPanel: FC = () => {
                 <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
                   <div style={{ fontSize: "12px", color: "#ff7a7a" }}>{guidesError}</div>
                   <DialogButton
-                    onClick={() =>
-                      selectedGame
-                        ? loadGuidesForGame(selectedGame, guideSearchText, guideSearchText)
-                        : handleUnifiedSearch()
-                    }
+                    onClick={() => {
+                      const targetName =
+                        selectedGame?.name || runningGame?.name || query.trim();
+                      if (targetName) {
+                        handleUnifiedSearch(
+                          targetName,
+                          selectedGame ? null : runningGame,
+                          guideSearchText,
+                          Boolean(selectedGame)
+                        );
+                      }
+                    }}
                     style={{ width: "100%", minWidth: 0, padding: "6px 8px", fontSize: "12px" }}
                   >
                     {s.retryBtn}
@@ -1040,7 +1156,7 @@ export const QuickAccessPanel: FC = () => {
                 <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
                   <div style={{ fontSize: "12px", color: "#8f98a0", lineHeight: 1.4 }}>
                     {hasSearchedGuides || selectedGame
-                      ? s.noGuidesFound(selectedGame?.name || query)
+                      ? s.noGuidesFound(selectedGame?.name || runningGame?.name || query)
                       : s.searchEmptyPrompt}
                   </div>
                   {sourceErrors.length > 0 ? (
@@ -1051,7 +1167,10 @@ export const QuickAccessPanel: FC = () => {
                   {hasSearchedGuides || selectedGame ? (
                     <DialogButton
                       onClick={() =>
-                        openGoogleInBrowser(selectedGame?.name || query, guideSearchText)
+                        openGoogleInBrowser(
+                          selectedGame?.name || runningGame?.name || query,
+                          guideSearchText
+                        )
                       }
                       style={{
                         width: "100%",
@@ -1210,6 +1329,32 @@ export const QuickAccessPanel: FC = () => {
               onChange={(opt) =>
                 handleUpdateSetting("language", opt.data as LanguageOption)
               }
+            />
+          </PanelSectionRow>
+          <PanelSectionRow>
+            <DropdownItem
+              label={s.quickSearchSourceLabel}
+              rgOptions={[
+                { data: "ign", label: s.quickSearchSourceIgn },
+                { data: "powerpyx", label: s.quickSearchSourcePowerpyx },
+                { data: "pcgamer", label: s.quickSearchSourcePcgamer },
+                { data: "game8", label: s.quickSearchSourceGame8 },
+                { data: "steam", label: s.quickSearchSourceSteam },
+                { data: "gamefaqs", label: s.quickSearchSourceGamefaqs },
+                { data: "strategywiki", label: s.quickSearchSourceStrategywiki },
+              ]}
+              selectedOption={settings.quick_search_source || "ign"}
+              onChange={(opt) =>
+                handleUpdateSetting("quick_search_source", opt.data as QuickSearchSourceOption)
+              }
+            />
+          </PanelSectionRow>
+          <PanelSectionRow>
+            <ToggleField
+              label={s.adblockLabel}
+              description={s.adblockDesc}
+              checked={settings.adblock !== false}
+              onChange={(val) => handleUpdateSetting("adblock", val)}
             />
           </PanelSectionRow>
           <PanelSectionRow>

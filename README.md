@@ -5,11 +5,11 @@ A **Decky Loader** plugin by **maQuan** for Steam Deck / SteamOS Gaming Mode tha
 ## Key Features
 
 - **Running Game Detection (`Router.MainRunningApp`)**: Automatically detects the currently running game and Steam Rich Presence hints to find matching guides faster.
-- **Multi-Source 1-Step Search**: Searches **IGN Wikis**, **PowerPyx**, **PC Gamer**, **Game8**, **Steam Community Guides**, and **StrategyWiki**.
+- **Google-First Walkthrough Results & Configurable Quick Search**: Displays Google Search results by default in Walkthrough Results (with multi-source backend fallback across **IGN Wikis**, **PowerPyx**, **PC Gamer**, **Game8**, **Steam Community Guides**, and **StrategyWiki**), plus a customizable **Quick Search** button in Settings (**IGN Wikis**, **PowerPyx**, **PC Gamer**, **Game8**, **Steam Community Guides**, **GameFAQs**, or **StrategyWiki**) alongside direct **Google Search**.
 - **Live Embedded Chromium `BrowserView` in QAM & Fullscreen**:
   - Renders live websites directly inside the QAM mini panel (with automatic coordinate alignment) and Fullscreen (`Read` button).
   - Keeps pages loaded in memory across QAM open/close toggles (`alwaysRender: true`) so you never lose your spot.
-  - Defaults to hidden top toolbars (`Show toolbar`) to maximize reading area, with **Zoom** (`65%–130%`) and **Mobile Fit** (`Fit`) toggles.
+  - Auto-hides top toolbars by default (`Show toolbar`) to maximize reading space, with **Zoom** (`65%–130%`), **Mobile Fit** (`Fit`), and toggleable **AdBlock** (enabled by default).
 - **Persistent Bookmarks & History**: Saves bookmarked pages and recent guides immediately in both `localStorage` and `DECKY_PLUGIN_SETTINGS_DIR/library.json`.
 - **Bilingual UI (`English` & `Tiếng Việt`)**: Defaults to **English**, with **Vietnamese (`Tiếng Việt`)** selectable in Settings.
 

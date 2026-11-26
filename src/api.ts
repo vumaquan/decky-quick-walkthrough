@@ -5,10 +5,12 @@ import {
   GameSearchResult,
   GuideContent,
   GuideSource,
+  GuideSummary,
   LibraryState,
   ListGuidesResponse,
   PinnedSection,
   PluginSettings,
+  QuickSearchSourceOption,
   SavedGameEntry,
 } from "./types";
 
@@ -217,6 +219,247 @@ async function fetchHtmlViaBrowserView(url: string, timeoutMs = 13000): Promise<
       fail(new Error(e?.message || s.errBackgroundBrowser));
     }
   });
+}
+
+const GOOGLE_SEARCH_CACHE = new Map<string, { ts: number; items: GuideSummary[] }>();
+
+/**
+ * Queries live Google Search via Steam's built-in Chromium BrowserView and extracts
+ * organic search result links + snippets without touching any CAPTCHA or bot gate.
+ */
+export async function searchGoogleViaBrowserView(
+  searchQuery: string,
+  appid = 0,
+  gameName = "",
+  timeoutMs = 7500
+): Promise<GuideSummary[]> {
+  const cleanQ = searchQuery.trim();
+  if (!cleanQ) return [];
+
+  const cacheKey = `${cleanQ.toLowerCase()}::${appid}`;
+  const cached = GOOGLE_SEARCH_CACHE.get(cacheKey);
+  if (cached && Date.now() - cached.ts < 45000) {
+    return cached.items;
+  }
+
+  const winInst =
+    Router.WindowStore?.GamepadUIMainWindowInstance ||
+    Router.WindowStore?.MainWindowInstance;
+  if (!winInst || typeof winInst.CreateBrowserView !== "function") {
+    return [];
+  }
+
+  const url = `https://www.google.com/search?q=${encodeURIComponent(cleanQ)}`;
+  const extractJs = `(() => {
+    try {
+      const out = [];
+      const seen = new Set();
+      const anchors = document.querySelectorAll('#search a, #rso a, main a');
+      for (const a of anchors) {
+        const h3 = a.querySelector('h3');
+        if (!h3) continue;
+        const href = a.href || '';
+        if (!href || !/^https?:\\/\\//i.test(href)) continue;
+        if (
+          href.includes('google.com/search') ||
+          href.includes('accounts.google.') ||
+          href.includes('support.google.') ||
+          href.includes('policies.google.') ||
+          href.includes('maps.google.')
+        ) {
+          continue;
+        }
+        if (seen.has(href)) continue;
+        seen.add(href);
+        const title = (h3.textContent || '').replace(/\\s+/g, ' ').trim();
+        if (!title) continue;
+        const block = a.closest('.g, [data-hveid], .MjjYud') || (a.parentElement && a.parentElement.parentElement);
+        let snippet = '';
+        if (block) {
+          const snipEl = block.querySelector('.VwiC3b, [data-sncf="1"], [data-sncf], .IsZvec');
+          if (snipEl) snippet = (snipEl.textContent || '').replace(/\\s+/g, ' ').trim();
+        }
+        out.push({ title, url: href, snippet });
+        if (out.length >= 12) break;
+      }
+      return JSON.stringify(out);
+    } catch (e) {
+      return '[]';
+    }
+  })()`;
+
+  let created: any = null;
+  return await new Promise<GuideSummary[]>((resolve) => {
+    let settled = false;
+    let latestTitle = "";
+    let grabScheduled = false;
+
+    const cleanup = () => {
+      try {
+        const popup = created?.GetBrowser?.() || created?.m_browserView;
+        popup?.SetVisible?.(false);
+        created?.Destroy?.();
+      } catch {
+        // ignore
+      }
+      created = null;
+    };
+
+    const finish = (items: GuideSummary[]) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(hardTimer);
+      cleanup();
+      if (items.length > 0) {
+        GOOGLE_SEARCH_CACHE.set(cacheKey, { ts: Date.now(), items });
+      }
+      resolve(items);
+    };
+
+    const tryCaptureResults = async () => {
+      if (settled || !latestTitle) return;
+      try {
+        const res = await executeInTab(latestTitle, false, extractJs);
+        if (settled || !res?.success || typeof res.result !== "string") return;
+        const parsed = JSON.parse(res.result);
+        if (!Array.isArray(parsed) || parsed.length === 0) return;
+        const mapped: GuideSummary[] = parsed
+          .filter((item: any) => item && typeof item.url === "string" && typeof item.title === "string")
+          .map((item: any, idx: number) => {
+            let domain = "google.com";
+            try {
+              domain = new URL(item.url).hostname.replace(/^www\./, "");
+            } catch {
+              // ignore
+            }
+            return {
+              guide_id: item.url,
+              source: "google" as GuideSource,
+              title: item.title,
+              author: domain || "Google",
+              description: item.snippet || "",
+              rating_stars: 0,
+              url: item.url,
+              appid,
+              game_name: gameName || cleanQ,
+              game_image: "",
+              match_score: 200 - idx,
+              match_reason: "",
+            };
+          });
+        if (mapped.length > 0) {
+          finish(mapped);
+        }
+      } catch {
+        // wait for retry or timeout fallback
+      }
+    };
+
+    const hardTimer = window.setTimeout(() => {
+      finish([]);
+    }, timeoutMs);
+
+    try {
+      created = winInst.CreateBrowserView("QuickWalkthroughGoogleSearch", {
+        strInitialURL: url,
+      });
+      if (!created) {
+        finish([]);
+        return;
+      }
+      const popup = created.GetBrowser?.() || created.m_browserView;
+      popup?.SetVisible?.(false);
+
+      if (popup && typeof popup.on === "function") {
+        popup.on("set-title", (title: string) => {
+          if (title && !title.startsWith("data:")) {
+            latestTitle = title;
+            if (grabScheduled && !settled) {
+              window.setTimeout(() => tryCaptureResults(), 350);
+            }
+          }
+        });
+        popup.on("finished-request", (loadedUrl: string) => {
+          if (!loadedUrl || loadedUrl === "about:blank" || loadedUrl.startsWith("data:")) {
+            return;
+          }
+          if (/google\.com\/sorry|consent\.google\./i.test(loadedUrl)) {
+            finish([]);
+            return;
+          }
+          grabScheduled = true;
+          window.setTimeout(() => tryCaptureResults(), 450);
+          window.setTimeout(() => tryCaptureResults(), 1200);
+        });
+        popup.on("load-error", () => {
+          finish([]);
+        });
+      }
+
+      created.LoadURL?.(url);
+    } catch {
+      finish([]);
+    }
+  });
+}
+
+export function buildQuickSearchUrl(
+  source: QuickSearchSourceOption,
+  gameName: string,
+  hint = "",
+  appid = 0,
+  wikiSlug = ""
+): { url: string; labelPrefix: string } {
+  const cleanGame = gameName.trim() || "walkthrough";
+  const cleanHint = hint.trim();
+  const qWithHint = [cleanGame, cleanHint].filter(Boolean).join(" ");
+  const qWalkthrough = [cleanGame, cleanHint, "walkthrough"].filter(Boolean).join(" ");
+
+  switch (source) {
+    case "powerpyx":
+      return {
+        url: `https://www.powerpyx.com/?s=${encodeURIComponent(qWithHint)}`,
+        labelPrefix: "PowerPyx",
+      };
+    case "pcgamer":
+      return {
+        url: `https://www.pcgamer.com/search/?searchTerm=${encodeURIComponent(qWalkthrough)}`,
+        labelPrefix: "PC Gamer",
+      };
+    case "game8":
+      return {
+        url: `https://game8.co/search?q=${encodeURIComponent(qWithHint)}`,
+        labelPrefix: "Game8",
+      };
+    case "steam":
+      return {
+        url:
+          appid > 0
+            ? `https://steamcommunity.com/app/${appid}/guides/?searchText=${encodeURIComponent(
+                cleanHint || "walkthrough"
+              )}&browsesort=toprated`
+            : `https://steamcommunity.com/search/guides/?text=${encodeURIComponent(qWithHint)}`,
+        labelPrefix: "Steam",
+      };
+    case "gamefaqs":
+      return {
+        url: `https://gamefaqs.gamespot.com/search?game=${encodeURIComponent(cleanGame)}`,
+        labelPrefix: "GameFAQs",
+      };
+    case "strategywiki":
+      return {
+        url: `https://strategywiki.org/w/index.php?search=${encodeURIComponent(qWithHint)}`,
+        labelPrefix: "StrategyWiki",
+      };
+    case "ign":
+    default:
+      return {
+        url: wikiSlug
+          ? `https://www.ign.com/wikis/${wikiSlug}`
+          : `https://www.ign.com/search?q=${encodeURIComponent(qWithHint)}`,
+        labelPrefix: "IGN",
+      };
+  }
 }
 
 export async function fetchGuideWithFallback(

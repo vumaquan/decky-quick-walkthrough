@@ -4,8 +4,19 @@ export type FontSizeOption = "small" | "medium" | "large";
 
 export type LanguageOption = "en" | "vi";
 
+export type QuickSearchSourceOption =
+  | "ign"
+  | "powerpyx"
+  | "pcgamer"
+  | "game8"
+  | "steam"
+  | "gamefaqs"
+  | "strategywiki";
+
 export interface PluginSettings {
   language?: LanguageOption;
+  quick_search_source?: QuickSearchSourceOption;
+  adblock?: boolean;
   font_size: FontSizeOption;
   english_only: boolean;
   walkthrough_only: boolean;

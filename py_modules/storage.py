@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional
 
 DEFAULT_SETTINGS: Dict[str, Any] = {
     "language": "en",
+    "quick_search_source": "ign",
+    "adblock": True,
     "font_size": "medium",
     "english_only": True,
     "walkthrough_only": True,

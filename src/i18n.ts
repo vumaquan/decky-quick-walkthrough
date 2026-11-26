@@ -77,10 +77,12 @@ export interface UiStrings {
   firstSection: string;
   chooseGuideBtn: string;
   quickSearchSection: string;
-  searchQueryPlaceholder: string;
+  gameTitlePlaceholder: string;
   searchBtn: string;
   filterPlaceholder: string;
   filterBtn: string;
+  quickSearchBtn: string;
+  googleSearchBtn: string;
   findForRunningGame: (name: string) => string;
   resultsHeaderGame: (name: string) => string;
   resultsHeaderCount: (count: number) => string;
@@ -97,6 +99,16 @@ export interface UiStrings {
   languageLabel: string;
   languageEn: string;
   languageVi: string;
+  quickSearchSourceLabel: string;
+  quickSearchSourceIgn: string;
+  quickSearchSourcePowerpyx: string;
+  quickSearchSourcePcgamer: string;
+  quickSearchSourceGame8: string;
+  quickSearchSourceSteam: string;
+  quickSearchSourceGamefaqs: string;
+  quickSearchSourceStrategywiki: string;
+  adblockLabel: string;
+  adblockDesc: string;
   fontSizeLabel: string;
   fontSmall: string;
   fontMedium: string;
@@ -181,20 +193,22 @@ const EN_STRINGS: UiStrings = {
   firstSection: "Start",
   chooseGuideBtn: "Choose guide",
   quickSearchSection: "Quick Walkthrough Search",
-  searchQueryPlaceholder: "Game + boss/area (e.g. elden ring caelid)",
+  gameTitlePlaceholder: "Game title (e.g. Elden Ring)",
   searchBtn: "Search",
-  filterPlaceholder: "Filter area / chapter / boss (optional)",
+  filterPlaceholder: "Chapter / boss / location (optional)",
   filterBtn: "Filter",
+  quickSearchBtn: "Quick Search",
+  googleSearchBtn: "Google Search",
   findForRunningGame: (name) => `Find for running game: ${name}`,
   resultsHeaderGame: (name) => `Walkthrough: ${name}`,
   resultsHeaderCount: (count) =>
     count > 0 ? `Walkthrough Results (${count})` : "Walkthrough Results",
   fallbackTopRatedNote: "Showing top-rated guides for this game.",
-  searchingWalkthroughs: "Searching walkthroughs...",
+  searchingWalkthroughs: "Searching Google walkthroughs...",
   noGuidesFound: (name) =>
-    `No guides found for "${name}". Try a shorter English title (e.g. "zelda ocarina of time") or paste a guide URL directly.`,
+    `No guides found for "${name}". Try filtering with a shorter English title or tap Google Search above.`,
   searchEmptyPrompt:
-    "Enter a game title (plus boss or area if desired) to search and read walkthroughs right in the plugin.",
+    "Enter a game title above (plus chapter/location if needed) and tap Filter, Quick Search, or Google Search.",
   detailsPrefix: "Details:",
   searchGoogleExternal: "Search Google in External Browser",
   readerEmptyState: "Select a saved game or search for a walkthrough to start reading.",
@@ -203,6 +217,16 @@ const EN_STRINGS: UiStrings = {
   languageLabel: "Language / Ngôn ngữ",
   languageEn: "English",
   languageVi: "Tiếng Việt",
+  quickSearchSourceLabel: "Quick Search Source",
+  quickSearchSourceIgn: "IGN Wikis",
+  quickSearchSourcePowerpyx: "PowerPyx",
+  quickSearchSourcePcgamer: "PC Gamer",
+  quickSearchSourceGame8: "Game8",
+  quickSearchSourceSteam: "Steam Community Guides",
+  quickSearchSourceGamefaqs: "GameFAQs",
+  quickSearchSourceStrategywiki: "StrategyWiki",
+  adblockLabel: "Block Ads (AdBlock)",
+  adblockDesc: "Hide ad banners, floating video ads, and trackers in the reader",
   fontSizeLabel: "Reader Font Size",
   fontSmall: "Small",
   fontMedium: "Medium",
@@ -286,20 +310,22 @@ const VI_STRINGS: UiStrings = {
   firstSection: "Mục đầu",
   chooseGuideBtn: "Chọn guide",
   quickSearchSection: "Tìm nhanh Walkthrough",
-  searchQueryPlaceholder: "Tên game + boss/khu vực (vd: elden ring caelid)",
+  gameTitlePlaceholder: "Tên game (vd: Elden Ring)",
   searchBtn: "Tìm",
-  filterPlaceholder: "Lọc khu vực / chương / boss (tùy chọn)",
+  filterPlaceholder: "Chương / boss / khu vực (tùy chọn)",
   filterBtn: "Lọc",
+  quickSearchBtn: "Quick Search",
+  googleSearchBtn: "Google Search",
   findForRunningGame: (name) => `Tìm cho game đang chơi: ${name}`,
   resultsHeaderGame: (name) => `Walkthrough: ${name}`,
   resultsHeaderCount: (count) =>
     count > 0 ? `Kết quả Walkthrough (${count})` : "Kết quả Walkthrough",
   fallbackTopRatedNote: "Đang hiển thị các guide top-rated của game.",
-  searchingWalkthroughs: "Đang tìm walkthrough...",
+  searchingWalkthroughs: "Đang tìm trên Google...",
   noGuidesFound: (name) =>
-    `Không tìm thấy guide cho "${name}". Thử gõ tên tiếng Anh ngắn hơn (vd: "zelda ocarina of time") hoặc dán thẳng URL trang guide.`,
+    `Không tìm thấy guide cho "${name}". Thử lọc ngắn hơn hoặc bấm nút Google Search ở trên.`,
   searchEmptyPrompt:
-    "Nhập tên game (kèm tên boss/khu vực nếu muốn) để tìm và đọc walkthrough ngay trên plugin.",
+    "Nhập tên game (kèm chương/khu vực nếu muốn) rồi bấm Lọc, Quick Search hoặc Google Search.",
   detailsPrefix: "Chi tiết:",
   searchGoogleExternal: "Tìm trên Google bằng trình duyệt ngoài",
   readerEmptyState: "Chọn một game đã lưu hoặc tìm walkthrough mới để bắt đầu đọc.",
@@ -308,6 +334,16 @@ const VI_STRINGS: UiStrings = {
   languageLabel: "Language / Ngôn ngữ",
   languageEn: "English",
   languageVi: "Tiếng Việt",
+  quickSearchSourceLabel: "Nguồn nút Quick Search",
+  quickSearchSourceIgn: "IGN Wikis",
+  quickSearchSourcePowerpyx: "PowerPyx",
+  quickSearchSourcePcgamer: "PC Gamer",
+  quickSearchSourceGame8: "Game8",
+  quickSearchSourceSteam: "Steam Community Guides",
+  quickSearchSourceGamefaqs: "GameFAQs",
+  quickSearchSourceStrategywiki: "StrategyWiki",
+  adblockLabel: "Chặn quảng cáo (AdBlock)",
+  adblockDesc: "Ẩn banner quảng cáo, video trôi nổi và script theo dõi khi đọc web",
   fontSizeLabel: "Cỡ chữ đọc hướng dẫn",
   fontSmall: "Nhỏ (Small)",
   fontMedium: "Vừa (Medium)",

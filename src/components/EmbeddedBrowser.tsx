@@ -92,10 +92,81 @@ const MOBILE_UA =
 
 const ZOOM_STEPS = [65, 75, 85, 95, 100, 115, 130];
 
+const ADBLOCK_HOST_RE =
+  /(^|\.)(doubleclick\.net|googlesyndication\.com|googleadservices\.com|adservice\.google\.com|adnxs\.com|amazon-adsystem\.com|taboola\.com|outbrain\.com|criteo\.com|criteo\.net|pubmatic\.com|rubiconproject\.com|openx\.net|casalemedia\.com|mediavine\.com|adthrive\.com|raptive\.com|nitropay\.com|freestar\.com|venatusmedia\.com|connatix\.com|primis\.tech|scorecardresearch\.com|moatads\.com|33across\.com|bidswitch\.net|sharethrough\.com|teads\.tv|indexww\.com|lijit\.com|sovrn\.com|revcontent\.com|mgid\.com)$/i;
+
+const ADBLOCK_CSS = `
+  ins.adsbygoogle,
+  [id^="google_ads_"],
+  [id*="google_ads_iframe"],
+  [id^="div-gpt-ad"],
+  [data-google-query-id],
+  .ad-container,
+  .ad-wrapper,
+  .ad-slot,
+  .ad-unit,
+  .ad-box,
+  .ad-banner,
+  .ad-leaderboard,
+  .ad-sticky,
+  .sticky-ad,
+  .floating-ad,
+  .ad-block,
+  [data-ad-slot],
+  [data-ad-unit],
+  [data-ad-region],
+  [data-testid*="ad-slot"],
+  [data-testid*="ad-banner"],
+  [aria-label="advertisement" i],
+  [id^="taboola-"],
+  [class*="taboola"],
+  [id*="outbrain"],
+  .OUTBRAIN,
+  .ob-widget,
+  [id*="mediavine"],
+  [class*="mediavine-ad"],
+  .adthrive-ad,
+  .raptive-ad,
+  [id*="freestar"],
+  [class*="freestar"],
+  .vm-placement,
+  [data-vm-placement],
+  [id*="nitropay"],
+  [data-nitro-id],
+  .pw-tag,
+  [id^="ezoic-pub-ad"],
+  #primis_player,
+  [id*="primis"],
+  [class*="primis"],
+  [id*="connatix"],
+  [class*="connatix"],
+  .cnx-ui,
+  .bx-slab,
+  #top-ad,
+  [class*="top-ad"],
+  [class*="bottom-ad"],
+  [id*="bottom-ad"],
+  [class*="leaderboard"],
+  [id*="leaderboard"],
+  [class*="StickyAd"],
+  [class*="AdSlot"] {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+  }
+`;
+
 async function applyPageZoomAndFit(
   tabTitle: string,
   zoomPct: number,
-  fitMode: boolean
+  fitMode: boolean,
+  adblockEnabled = true
 ) {
   if (!tabTitle) return;
   const zoomRatio = Math.max(0.5, Math.min(1.5, zoomPct / 100));
@@ -103,15 +174,14 @@ async function applyPageZoomAndFit(
     ? `
       html, body { max-width: 100% !important; overflow-x: hidden !important; }
       img, video, svg, table, pre, iframe { max-width: 100% !important; }
-      [class*="leaderboard"], [id*="leaderboard"], [class*="ad-banner"], [id*="top-ad"], [data-testid*="ad-slot"] {
-        display: none !important; height: 0 !important; min-height: 0 !important;
-      }
     `
     : "";
   const css = `
     html { zoom: ${zoomRatio} !important; }
     ${fitRules}
   `.trim();
+
+  const adblockCss = adblockEnabled ? ADBLOCK_CSS.trim() : "";
 
   const jsCode = `(() => {
     try {
@@ -131,6 +201,91 @@ async function applyPageZoomAndFit(
         (document.head || document.documentElement).appendChild(st);
       }
       st.textContent = ${JSON.stringify(css)};
+
+      window.__qwAdblockEnabled = ${adblockEnabled ? "true" : "false"};
+      let adSt = document.getElementById('qw-adblock-style');
+      if (window.__qwAdblockEnabled) {
+        if (!adSt) {
+          adSt = document.createElement('style');
+          adSt.id = 'qw-adblock-style';
+          (document.head || document.documentElement).appendChild(adSt);
+        }
+        adSt.textContent = ${JSON.stringify(adblockCss)};
+
+        const adHostRe = ${ADBLOCK_HOST_RE.toString()};
+        const isAdUrl = (raw) => {
+          if (!raw || typeof raw !== 'string') return false;
+          try {
+            const u = new URL(raw, window.location.href);
+            return adHostRe.test(u.hostname);
+          } catch {
+            return false;
+          }
+        };
+
+        if (!window.__qwAdblockInstalled) {
+          window.__qwAdblockInstalled = true;
+          const origFetch = window.fetch;
+          if (typeof origFetch === 'function') {
+            window.fetch = function(input, init) {
+              const reqUrl = typeof input === 'string' ? input : (input && input.url) || '';
+              if (window.__qwAdblockEnabled && isAdUrl(reqUrl)) {
+                return Promise.resolve(new Response('', { status: 204, statusText: 'Blocked' }));
+              }
+              return origFetch.apply(this, arguments);
+            };
+          }
+          const origXhrOpen = XMLHttpRequest.prototype.open;
+          XMLHttpRequest.prototype.open = function(method, reqUrl) {
+            this.__qwBlocked = Boolean(window.__qwAdblockEnabled && isAdUrl(reqUrl));
+            if (this.__qwBlocked) {
+              return origXhrOpen.call(this, method, 'about:blank');
+            }
+            return origXhrOpen.apply(this, arguments);
+          };
+          const origXhrSend = XMLHttpRequest.prototype.send;
+          XMLHttpRequest.prototype.send = function() {
+            if (this.__qwBlocked) return;
+            return origXhrSend.apply(this, arguments);
+          };
+        }
+
+        const scrubAds = () => {
+          if (!window.__qwAdblockEnabled) return;
+          document.querySelectorAll('iframe').forEach((f) => {
+            const src = f.getAttribute('src') || '';
+            const id = f.id || '';
+            const title = f.getAttribute('title') || '';
+            if (
+              isAdUrl(src) ||
+              /google_ads|safeframe|prebid|ad-frame/i.test(id + ' ' + title)
+            ) {
+              f.style.setProperty('display', 'none', 'important');
+              f.style.setProperty('height', '0', 'important');
+            }
+          });
+          document.querySelectorAll('script[src]').forEach((sc) => {
+            if (isAdUrl(sc.getAttribute('src') || '')) {
+              sc.type = 'javascript/blocked';
+            }
+          });
+        };
+        scrubAds();
+
+        if (!window.__qwAdObserver && typeof MutationObserver !== 'undefined' && document.documentElement) {
+          let pending = 0;
+          window.__qwAdObserver = new MutationObserver(() => {
+            if (!window.__qwAdblockEnabled || pending) return;
+            pending = window.setTimeout(() => {
+              pending = 0;
+              scrubAds();
+            }, 350);
+          });
+          window.__qwAdObserver.observe(document.documentElement, { childList: true, subtree: true });
+        }
+      } else if (adSt) {
+        adSt.remove();
+      }
       return true;
     } catch (e) {
       return false;
@@ -140,11 +295,11 @@ async function applyPageZoomAndFit(
   try {
     const res = await executeInTab(tabTitle, false, jsCode);
     if (!res?.success) {
-      injectCssIntoTab(tabTitle, css);
+      injectCssIntoTab(tabTitle, adblockEnabled ? `${css}\n${adblockCss}` : css);
     }
   } catch {
     try {
-      injectCssIntoTab(tabTitle, css);
+      injectCssIntoTab(tabTitle, adblockEnabled ? `${css}\n${adblockCss}` : css);
     } catch {
       // ignore if tab title changed mid-navigation
     }
@@ -305,6 +460,9 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
   const s = getStrings(settings.language);
   const sRef = useRef(s);
   sRef.current = s;
+  const adblockEnabled = settings.adblock !== false;
+  const adblockEnabledRef = useRef(adblockEnabled);
+  adblockEnabledRef.current = adblockEnabled;
   const chromeHidden = compact && qamChromeHidden;
   const qamVisible = useQuickAccessVisible();
   const initialUrl =
@@ -511,15 +669,30 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
             currentUrlRef.current = url;
             setCurrentUrl(url);
             persistCurrentPage(url, pageTitleRef.current);
-            window.setTimeout(() => {
-              if (!disposed) {
-                applyPageZoomAndFit(
-                  pageTitleRef.current,
-                  zoomPctRef.current,
-                  fitModeRef.current
-                );
-              }
-            }, 180);
+            timers.push(
+              window.setTimeout(() => {
+                if (!disposed) {
+                  applyPageZoomAndFit(
+                    pageTitleRef.current,
+                    zoomPctRef.current,
+                    fitModeRef.current,
+                    adblockEnabledRef.current
+                  );
+                }
+              }, 180)
+            );
+            timers.push(
+              window.setTimeout(() => {
+                if (!disposed) {
+                  applyPageZoomAndFit(
+                    pageTitleRef.current,
+                    zoomPctRef.current,
+                    fitModeRef.current,
+                    adblockEnabledRef.current
+                  );
+                }
+              }, 900)
+            );
           }
           setCanGoBack(
             Boolean(ownerCreated?.CanGoBackward?.() || popup.CanGoBackward?.())
@@ -534,7 +707,12 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
             pageTitleRef.current = title;
             setPageTitle(title);
             persistCurrentPage(currentUrlRef.current, title);
-            applyPageZoomAndFit(title, zoomPctRef.current, fitModeRef.current);
+            applyPageZoomAndFit(
+              title,
+              zoomPctRef.current,
+              fitModeRef.current,
+              adblockEnabledRef.current
+            );
           }
         });
         popup.on("can-go-back-forward-changed", (back: boolean, fwd: boolean) => {
@@ -751,10 +929,10 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
     };
   }, [loadKey, compact, fitMode, persistCurrentPage]);
 
-  // Apply zoom/fit CSS live whenever zoomPct or fitMode changes
+  // Apply zoom/fit CSS and AdBlock live whenever zoomPct, fitMode, or adblock changes
   useEffect(() => {
-    applyPageZoomAndFit(pageTitleRef.current, zoomPct, fitMode);
-  }, [zoomPct, fitMode]);
+    applyPageZoomAndFit(pageTitleRef.current, zoomPct, fitMode, adblockEnabled);
+  }, [zoomPct, fitMode, adblockEnabled]);
 
   // Sync BrowserView visibility with QAM state and overlay drawer state
   const hostDocHidden = Boolean(hostRef.current?.ownerDocument?.hidden);

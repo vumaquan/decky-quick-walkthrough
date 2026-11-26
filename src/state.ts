@@ -9,6 +9,8 @@ const LOCAL_GAMES_KEY = "qw_saved_games_v1";
 
 const DEFAULT_SETTINGS: PluginSettings = {
   language: loadStoredLanguage(),
+  quick_search_source: "ign",
+  adblock: true,
   font_size: "medium",
   english_only: true,
   walkthrough_only: true,
@@ -134,7 +136,15 @@ export function patchActiveReaderMeta(patch: Partial<ActiveReaderTarget>): void 
 export function setSharedSettings(settings: PluginSettings): void {
   const language = normalizeLanguage(settings.language);
   persistStoredLanguage(language);
-  store = { ...store, settings: { ...settings, language } };
+  store = {
+    ...store,
+    settings: {
+      ...settings,
+      language,
+      quick_search_source: settings.quick_search_source || "ign",
+      adblock: settings.adblock !== false,
+    },
+  };
   notify();
 }
 
