@@ -22,6 +22,7 @@ import {
   FaRegBookmark,
   FaSearch,
   FaStar,
+  FaTimesCircle,
   FaTrash,
 } from "react-icons/fa";
 import {
@@ -986,6 +987,11 @@ export const QuickAccessPanel: FC = () => {
 
             {/* Chapter / location filter row below game box */}
             <PanelSectionRow>
+              <style>{`
+                .qw-clearable-input input {
+                  padding-right: 28px !important;
+                }
+              `}</style>
               <Focusable
                 flow-children="horizontal"
                 style={{
@@ -995,7 +1001,10 @@ export const QuickAccessPanel: FC = () => {
                   width: "100%",
                 }}
               >
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  className={guideSearchText ? "qw-clearable-input" : undefined}
+                  style={{ position: "relative", flex: 1, minWidth: 0 }}
+                >
                   <TextField
                     value={guideSearchText}
                     onChange={(e) => setGuideSearchText(e.target.value)}
@@ -1015,8 +1024,35 @@ export const QuickAccessPanel: FC = () => {
                     }}
                     placeholder={s.filterPlaceholder}
                   />
+                  {guideSearchText ? (
+                    <DialogButton
+                      onClick={() => setGuideSearchText("")}
+                      style={{
+                        position: "absolute",
+                        right: "6px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        width: "22px",
+                        height: "22px",
+                        minWidth: 0,
+                        minHeight: 0,
+                        padding: 0,
+                        margin: 0,
+                        backgroundColor: "transparent",
+                        border: "none",
+                        boxShadow: "none",
+                        color: "#b8bcbf",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        zIndex: 2,
+                      }}
+                    >
+                      <FaTimesCircle size={13} />
+                    </DialogButton>
+                  ) : null}
                 </div>
-                <div style={{ width: "48px", flexShrink: 0 }}>
+                <div style={{ width: "38px", flexShrink: 0 }}>
                   <DialogButton
                     onClick={() => {
                       const targetName =
@@ -1033,11 +1069,13 @@ export const QuickAccessPanel: FC = () => {
                     style={{
                       width: "100%",
                       minWidth: 0,
-                      padding: "7px 2px",
-                      fontSize: "11px",
+                      padding: "8px 0",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
-                    {s.filterBtn}
+                    <FaSearch size={12} />
                   </DialogButton>
                 </div>
               </Focusable>
