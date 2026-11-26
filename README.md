@@ -1,6 +1,6 @@
 # Quick Walkthrough (Decky Loader Plugin for SteamOS)
 
-A **Decky Loader** plugin by **maQuan** for Steam Deck / SteamOS Gaming Mode that lets you search, translate, ad-block, zoom, and bookmark live web game walkthroughs directly inside the Quick Access Menu (`...`) or Fullscreen (`/quick-walkthrough/reader`) without leaving your game.
+A **Decky Loader** plugin by **maQuan** for Steam Deck / SteamOS Gaming Mode that lets you search, translate, ad-block, zoom, and bookmark live game walkthroughs directly inside the Quick Access Menu (`...`) or Fullscreen without leaving your game.
 
 ## Installation (Steam Deck / SteamOS)
 
@@ -30,16 +30,16 @@ A **Decky Loader** plugin by **maQuan** for Steam Deck / SteamOS Gaming Mode tha
 
 ## Key Features
 
-- **Automatic Running Game & Location Detection**: Detects your currently active Steam or non-Steam game (`Router.MainRunningApp`) and Steam Rich Presence hints, placing the running game box at the top of Search with chapter/boss/location filtering.
-- **Google-First Walkthrough Results & Configurable Quick Search**: Automatically populates Walkthrough Results from Google Search (with multi-source backend fallback across **IGN Wikis**, **PowerPyx**, **PC Gamer**, **Game8**, **Steam Community Guides**, and **StrategyWiki**), plus a customizable **Quick Search** button in Settings (**IGN Wikis**, **PowerPyx**, **PC Gamer**, **Game8**, **Steam Community Guides**, **GameFAQs**, or **StrategyWiki**) alongside **Google Search**.
-- **Live Embedded Chromium `BrowserView` in QAM & Fullscreen**:
-  - Renders live guide websites directly inside the QAM mini panel (with automatic coordinate alignment) and Fullscreen (`Read` button).
-  - **One-Tap Google Translate**: Built-in toolbar button toggles full-page Google Translate on/off while saving canonical original URLs in bookmarks, with configurable target language in Settings (`Auto`, `English`, `Tiếng Việt`, `Japanese`, `Chinese`, `Korean`, `Spanish`, `French`, `German`).
-  - **Built-in AdBlock**: Enabled by default (toggleable in Settings) to hide ad banners, floating video ads, and ad frames for cleaner reading.
-  - Auto-hides top toolbars by default (`Show toolbar`) to maximize reading space, with **Zoom** (`65%–130%`) and **Mobile Fit** (`Fit`).
-  - Keeps pages loaded in memory across QAM open/close toggles (`alwaysRender: true`) so you never lose your spot.
-- **Persistent Bookmarks & History**: Saves bookmarked pages and recent guides immediately in both `localStorage` and `DECKY_PLUGIN_SETTINGS_DIR/library.json`.
-- **Bilingual UI (`English` & `Tiếng Việt`)**: Defaults to **English**, with **Vietnamese (`Tiếng Việt`)** selectable in Settings.
+- **Running Game Detection**: Automatically identifies the game you are currently playing to look up matching walkthroughs right away, with optional filtering by chapter, boss, or area.
+- **Multi-Source Search**: Shows Google Search walkthrough results by default (with fallback across **IGN Wikis**, **PowerPyx**, **PC Gamer**, **Game8**, **Steam Community Guides**, and **StrategyWiki**), plus a configurable **Quick Search** shortcut in Settings to jump straight to your preferred guide site (**IGN Wikis**, **PowerPyx**, **PC Gamer**, **Game8**, **Steam Community Guides**, **GameFAQs**, or **StrategyWiki**).
+- **In-Game Guide Reader (Sidebar & Fullscreen)**:
+  - Read live guide webpages directly inside the Quick Access sidebar (`...`) or expand to Fullscreen without leaving your game.
+  - Keeps your opened page intact across menu toggles so you never lose your place when returning to gameplay.
+  - Built-in **AdBlock** (enabled by default, toggleable in Settings) hides banner and floating ads for cleaner reading.
+  - One-tap **Google Translate** translates guides into your chosen language (configurable in Settings).
+  - Collapsible toolbar, **Zoom** (`65%–130%`), and **Mobile Fit** formatting maximize reading space on the Steam Deck screen.
+- **Bookmarks & Recent Guides**: Save walkthrough pages and quickly resume where you left off across sessions.
+- **Bilingual Interface**: Supports **English** (default) and **Vietnamese (`Tiếng Việt`)** in Settings.
 
 ## Project Structure
 
