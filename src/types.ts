@@ -13,8 +13,20 @@ export type QuickSearchSourceOption =
   | "gamefaqs"
   | "strategywiki";
 
+export type TranslateLangOption =
+  | "auto"
+  | "en"
+  | "vi"
+  | "ja"
+  | "zh-CN"
+  | "ko"
+  | "es"
+  | "fr"
+  | "de";
+
 export interface PluginSettings {
   language?: LanguageOption;
+  translate_lang?: TranslateLangOption;
   quick_search_source?: QuickSearchSourceOption;
   adblock?: boolean;
   font_size: FontSizeOption;

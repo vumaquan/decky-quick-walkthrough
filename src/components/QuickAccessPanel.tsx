@@ -63,6 +63,7 @@ import {
   PluginSettings,
   QuickSearchSourceOption,
   SavedGameEntry,
+  TranslateLangOption,
 } from "../types";
 import { EmbeddedBrowser } from "./EmbeddedBrowser";
 
@@ -1328,6 +1329,26 @@ export const QuickAccessPanel: FC = () => {
               selectedOption={settings.language || "en"}
               onChange={(opt) =>
                 handleUpdateSetting("language", opt.data as LanguageOption)
+              }
+            />
+          </PanelSectionRow>
+          <PanelSectionRow>
+            <DropdownItem
+              label={s.translateLangLabel}
+              rgOptions={[
+                { data: "auto", label: s.translateLangAuto },
+                { data: "en", label: "English" },
+                { data: "vi", label: "Tiếng Việt" },
+                { data: "ja", label: "日本語 (Japanese)" },
+                { data: "zh-CN", label: "简体中文 (Chinese)" },
+                { data: "ko", label: "한국어 (Korean)" },
+                { data: "es", label: "Español (Spanish)" },
+                { data: "fr", label: "Français (French)" },
+                { data: "de", label: "Deutsch (German)" },
+              ]}
+              selectedOption={settings.translate_lang || "auto"}
+              onChange={(opt) =>
+                handleUpdateSetting("translate_lang", opt.data as TranslateLangOption)
               }
             />
           </PanelSectionRow>

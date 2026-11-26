@@ -19,12 +19,12 @@ import {
   FaChevronUp,
   FaCompress,
   FaExpand,
-  FaExternalLinkAlt,
   FaRegBookmark,
   FaSearchMinus,
   FaSearchPlus,
   FaSyncAlt,
 } from "react-icons/fa";
+import { MdGTranslate } from "react-icons/md";
 import {
   FULL_READER_ROUTE,
   openUrlInBrowser,
@@ -85,6 +85,53 @@ function isGenericName(name: string): boolean {
     n.startsWith("ign:") ||
     n.startsWith("google:")
   );
+}
+
+function isTranslatedUrl(rawUrl: string): boolean {
+  try {
+    const u = new URL(rawUrl);
+    return (
+      u.hostname.endsWith(".translate.goog") ||
+      (u.hostname === "translate.google.com" && u.pathname.startsWith("/translate"))
+    );
+  } catch {
+    return false;
+  }
+}
+
+function untranslateUrl(rawUrl: string, fallbackOrig = ""): string {
+  try {
+    const u = new URL(rawUrl);
+    if (u.hostname === "translate.google.com" && u.pathname.startsWith("/translate")) {
+      const inner = u.searchParams.get("u");
+      if (inner) return inner;
+      return fallbackOrig || rawUrl;
+    }
+    if (u.hostname.endsWith(".translate.goog")) {
+      const encodedHost = u.hostname.slice(0, -".translate.goog".length);
+      const decodedHost = encodedHost
+        .replace(/--/g, "\u0000")
+        .replace(/-/g, ".")
+        .replace(/\u0000/g, "-");
+      const cleanParams = new URLSearchParams();
+      u.searchParams.forEach((val, key) => {
+        if (!key.startsWith("_x_tr_")) {
+          cleanParams.append(key, val);
+        }
+      });
+      const qs = cleanParams.toString();
+      return `${u.protocol}//${decodedHost}${u.pathname}${qs ? `?${qs}` : ""}${u.hash}`;
+    }
+  } catch {
+    // ignore
+  }
+  return fallbackOrig || rawUrl;
+}
+
+function buildGoogleTranslateUrl(rawUrl: string, targetLang: string): string {
+  const tl = encodeURIComponent(targetLang || "en");
+  const u = encodeURIComponent(rawUrl);
+  return `https://translate.google.com/translate?sl=auto&tl=${tl}&u=${u}`;
 }
 
 const MOBILE_UA =
@@ -178,6 +225,7 @@ async function applyPageZoomAndFit(
     : "";
   const css = `
     html { zoom: ${zoomRatio} !important; }
+    .VIpgJd-ZVi9od-ORHb-OEVmcd, #gt-nvframe { display: none !important; height: 0 !important; }
     ${fitRules}
   `.trim();
 
@@ -495,6 +543,9 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
   const targetRef = useRef<ActiveReaderTarget>(target);
   const onProgressSavedRef = useRef(onProgressSaved);
   const currentUrlRef = useRef<string>(initialUrl);
+  const untranslatedUrlRef = useRef<string>(
+    isTranslatedUrl(initialUrl) ? untranslateUrl(initialUrl) : initialUrl
+  );
   const pageTitleRef = useRef<string>(target.guide_title || target.game_name);
   const bookmarkedRef = useRef<boolean>(Boolean(target.bookmarked));
   const zoomPctRef = useRef<number>(compact ? 75 : 85);
@@ -526,6 +577,9 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
     const nextTitle = targetRef.current.guide_title || targetRef.current.game_name;
     const nextBookmarked = Boolean(targetRef.current.bookmarked);
     currentUrlRef.current = nextUrl;
+    if (!isTranslatedUrl(nextUrl)) {
+      untranslatedUrlRef.current = nextUrl;
+    }
     pageTitleRef.current = nextTitle;
     bookmarkedRef.current = nextBookmarked;
     setCurrentUrl(nextUrl);
@@ -541,6 +595,9 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
       showToast = false
     ) => {
       if (!url || url.startsWith("data:") || url === "about:blank") return;
+      const canonicalUrl = isTranslatedUrl(url)
+        ? untranslateUrl(url, untranslatedUrlRef.current)
+        : url;
       const t = targetRef.current;
       const derivedName = isGenericName(t.game_name)
         ? cleanGuideTitle(title) || t.game_name || "Walkthrough"
@@ -567,12 +624,12 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
         game_image: t.game_image || "",
         bookmarked: isBookmarked,
         active_source: "web",
-        active_guide_id: url,
-        active_guide_title: title || url,
+        active_guide_id: canonicalUrl,
+        active_guide_title: title || canonicalUrl,
         active_guide_author: "Live Web",
         section_index: 0,
         section_id: "web",
-        section_title: title || url,
+        section_title: title || canonicalUrl,
         total_sections: 1,
         scroll_ratio: 0,
         pinned_sections: [],
@@ -585,9 +642,9 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
         game_key: safeKey,
         game_name: derivedName,
         source: "web",
-        guide_id: url,
-        guide_url: url,
-        guide_title: title || url,
+        guide_id: canonicalUrl,
+        guide_url: canonicalUrl,
+        guide_title: title || canonicalUrl,
         bookmarked: isBookmarked,
       });
 
@@ -614,12 +671,12 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
           derivedName,
           t.game_image || "",
           "web",
-          url,
-          title || url,
+          canonicalUrl,
+          title || canonicalUrl,
           "Live Web",
           0,
           "web",
-          title || url,
+          title || canonicalUrl,
           1,
           0,
           explicitBookmark !== undefined ? isBookmarked : undefined
@@ -667,6 +724,9 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
           popup.SetWindowStackingOrder?.(1);
           if (url && !url.startsWith("data:") && url !== "about:blank") {
             currentUrlRef.current = url;
+            if (!isTranslatedUrl(url)) {
+              untranslatedUrlRef.current = url;
+            }
             setCurrentUrl(url);
             persistCurrentPage(url, pageTitleRef.current);
             timers.push(
@@ -1033,6 +1093,25 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
     });
   };
 
+  const isTranslated = isTranslatedUrl(currentUrl);
+
+  const handleToggleTranslate = () => {
+    const cur = currentUrlRef.current || currentUrl;
+    if (!cur || cur === "about:blank" || cur.startsWith("data:")) return;
+    if (isTranslatedUrl(cur)) {
+      const origUrl = untranslateUrl(cur, untranslatedUrlRef.current);
+      setLoading(true);
+      navTarget()?.LoadURL?.(origUrl);
+      return;
+    }
+    untranslatedUrlRef.current = cur;
+    const pref = settings.translate_lang || "auto";
+    const targetLang = pref === "auto" ? (settings.language === "vi" ? "vi" : "en") : pref;
+    const txUrl = buildGoogleTranslateUrl(cur, targetLang);
+    setLoading(true);
+    navTarget()?.LoadURL?.(txUrl);
+  };
+
   const navTarget = () => browserRef.current || popupRef.current;
   const BrowserViewComponent = SteamBrowserContainer;
 
@@ -1302,10 +1381,13 @@ export const EmbeddedBrowser: FC<EmbeddedBrowserProps> = ({
 
             <div style={{ width: compact ? "24px" : "28px", height: rowBtnStyle.height, flexShrink: 0 }}>
               <DialogButton
-                onClick={() => openUrlInBrowser(currentUrl)}
-                style={rowBtnStyle}
+                onClick={handleToggleTranslate}
+                style={{
+                  ...rowBtnStyle,
+                  backgroundColor: isTranslated ? "rgba(102, 192, 244, 0.28)" : undefined,
+                }}
               >
-                <FaExternalLinkAlt size={9} />
+                <MdGTranslate size={11} />
               </DialogButton>
             </div>
             {compact ? (

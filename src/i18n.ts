@@ -99,6 +99,8 @@ export interface UiStrings {
   languageLabel: string;
   languageEn: string;
   languageVi: string;
+  translateLangLabel: string;
+  translateLangAuto: string;
   quickSearchSourceLabel: string;
   quickSearchSourceIgn: string;
   quickSearchSourcePowerpyx: string;
@@ -217,6 +219,8 @@ const EN_STRINGS: UiStrings = {
   languageLabel: "Language / Ngôn ngữ",
   languageEn: "English",
   languageVi: "Tiếng Việt",
+  translateLangLabel: "Web Translate Language",
+  translateLangAuto: "Auto (Follow Plugin Language)",
   quickSearchSourceLabel: "Quick Search Source",
   quickSearchSourceIgn: "IGN Wikis",
   quickSearchSourcePowerpyx: "PowerPyx",
@@ -334,6 +338,8 @@ const VI_STRINGS: UiStrings = {
   languageLabel: "Language / Ngôn ngữ",
   languageEn: "English",
   languageVi: "Tiếng Việt",
+  translateLangLabel: "Ngôn ngữ dịch trang web",
+  translateLangAuto: "Tự động (Theo ngôn ngữ Plugin)",
   quickSearchSourceLabel: "Nguồn nút Quick Search",
   quickSearchSourceIgn: "IGN Wikis",
   quickSearchSourcePowerpyx: "PowerPyx",

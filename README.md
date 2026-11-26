@@ -9,7 +9,7 @@ A **Decky Loader** plugin by **maQuan** for Steam Deck / SteamOS Gaming Mode tha
 - **Live Embedded Chromium `BrowserView` in QAM & Fullscreen**:
   - Renders live websites directly inside the QAM mini panel (with automatic coordinate alignment) and Fullscreen (`Read` button).
   - Keeps pages loaded in memory across QAM open/close toggles (`alwaysRender: true`) so you never lose your spot.
-  - Auto-hides top toolbars by default (`Show toolbar`) to maximize reading space, with **Zoom** (`65%–130%`), **Mobile Fit** (`Fit`), and toggleable **AdBlock** (enabled by default).
+  - Auto-hides top toolbars by default (`Show toolbar`) to maximize reading space, with **Zoom** (`65%–130%`), **Mobile Fit** (`Fit`), one-tap **Google Translate** toggle (with configurable target language in Settings), and toggleable **AdBlock** (enabled by default).
 - **Persistent Bookmarks & History**: Saves bookmarked pages and recent guides immediately in both `localStorage` and `DECKY_PLUGIN_SETTINGS_DIR/library.json`.
 - **Bilingual UI (`English` & `Tiếng Việt`)**: Defaults to **English**, with **Vietnamese (`Tiếng Việt`)** selectable in Settings.
 

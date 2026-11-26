@@ -9,6 +9,7 @@ const LOCAL_GAMES_KEY = "qw_saved_games_v1";
 
 const DEFAULT_SETTINGS: PluginSettings = {
   language: loadStoredLanguage(),
+  translate_lang: "auto",
   quick_search_source: "ign",
   adblock: true,
   font_size: "medium",
@@ -141,6 +142,7 @@ export function setSharedSettings(settings: PluginSettings): void {
     settings: {
       ...settings,
       language,
+      translate_lang: settings.translate_lang || "auto",
       quick_search_source: settings.quick_search_source || "ign",
       adblock: settings.adblock !== false,
     },
