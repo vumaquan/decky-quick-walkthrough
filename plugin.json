@@ -5,7 +5,7 @@
   "api_version": 1,
   "publish": {
     "tags": ["walkthrough", "guides", "browser", "utility"],
-    "description": "Search, view, and bookmark live web game walkthroughs (IGN Wikis, PowerPyx, Game8, Steam Guides, StrategyWiki) directly inside SteamOS Gaming Mode QAM or fullscreen.",
-    "image": "https://opengraph.githubassets.com/1/maQuan/decky-quick-walkthrough"
+    "description": "Search, translate, ad-block, and bookmark live web game walkthroughs directly inside SteamOS Gaming Mode QAM or fullscreen.",
+    "image": "https://opengraph.githubassets.com/1/vumaquan/decky-quick-walkthrough"
   }
 }

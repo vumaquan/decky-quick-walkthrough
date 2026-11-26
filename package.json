@@ -1,7 +1,8 @@
 {
   "name": "decky-quick-walkthrough",
-  "version": "1.4.0",
-  "description": "Quickly search, read, bookmark, and resume game walkthroughs directly inside SteamOS via Decky Loader.",
+  "version": "1.4.1",
+  "description": "Quickly search, translate, ad-block, read, and bookmark game walkthroughs directly inside SteamOS via Decky Loader.",
+  "repository": "https://github.com/vumaquan/decky-quick-walkthrough",
   "type": "module",
   "scripts": {
     "build": "rollup -c",
